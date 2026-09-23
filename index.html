@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Kjellberger LiveOL">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16181c" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<title>Kjellberger LiveOL</title>
+<style>
+:root{
+  --bg:#f4f4f1; --card:#ffffff; --text:#16181c; --muted:#6b6f76; --line:#e4e4df;
+  --accent:#e8590c; --accent-soft:#fff0e6; --ok:#2b8a3e; --ok-soft:#e6f4ea;
+  --run:#1c6dd0; --run-soft:#e7f0fb; --bad:#c92a2a; --bad-soft:#fdecec;
+  --shadow:0 1px 2px rgba(0,0,0,.06),0 1px 8px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#101215; --card:#1b1e23; --text:#eceef1; --muted:#9aa0a8; --line:#2a2e35;
+    --accent:#ff7a33; --accent-soft:#3a2415; --ok:#5ec27a; --ok-soft:#18301f;
+    --run:#63a4ff; --run-soft:#16263d; --bad:#ff6b6b; --bad-soft:#3a1b1b;
+    --shadow:none;
+  }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);
+  font:16px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif}
+body{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+input{font:inherit;color:var(--text)}
+.tnum{font-variant-numeric:tabular-nums}
+header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:saturate(1.6) blur(14px);-webkit-backdrop-filter:saturate(1.6) blur(14px);
+  padding:calc(10px + env(safe-area-inset-top)) 16px 10px;border-bottom:1px solid var(--line)}
+header h1{font-size:22px;margin:0;line-height:1.2;letter-spacing:-.01em}
+header .sub{color:var(--muted);font-size:13px;display:flex;gap:8px;align-items:center;margin-top:2px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
+.dot.live{background:var(--ok);box-shadow:0 0 0 0 var(--ok);animation:pulse 2s infinite}
+.dot.err{background:var(--bad)}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 60%,transparent)}70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
+main{padding:12px 16px;max-width:680px;margin:0 auto}
+.section-title{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:18px 4px 8px}
+.card{background:var(--card);border-radius:14px;box-shadow:var(--shadow);border:1px solid var(--line);overflow:hidden}
+.card + .card{margin-top:10px}
+.runner{padding:12px 14px;display:block;width:100%;text-align:left}
+.r-top{display:flex;align-items:flex-start;gap:10px}
+.r-name{font-weight:600;font-size:17px;line-height:1.25}
+.r-meta{color:var(--muted);font-size:13px;margin-top:1px}
+.r-right{margin-left:auto;text-align:right;flex-shrink:0}
+.r-time{font-weight:650;font-size:18px}
+.r-plus{color:var(--muted);font-size:13px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:2px 8px;border-radius:99px;white-space:nowrap}
+.chip.run{background:var(--run-soft);color:var(--run)}
+.chip.ok{background:var(--ok-soft);color:var(--ok);letter-spacing:.04em}
+.chip.run{letter-spacing:.04em}
+.chip.wait{background:var(--line);color:var(--muted)}
+.chip.bad{background:var(--bad-soft);color:var(--bad)}
+.place{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 6px;border-radius:9px;background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:15px;flex-shrink:0}
+.place.gold{background:#ffe8a3;color:#7a5600}
+.place.none{background:var(--line);color:var(--muted)}
+.progress{height:4px;background:var(--line);border-radius:4px;margin-top:10px;overflow:hidden}
+.progress > i{display:block;height:100%;background:var(--run);border-radius:4px;transition:width .6s}
+.last{font-size:13px;color:var(--muted);margin-top:6px}
+.last b{color:var(--text);font-weight:600}
+.splits{border-top:1px solid var(--line);padding:4px 14px 10px}
+.splits table{width:100%;border-collapse:collapse;font-size:14px}
+.splits td{padding:7px 0;border-bottom:1px solid var(--line)}
+.splits tr:last-child td{border-bottom:0}
+.splits td.c{color:var(--muted);width:40%}
+.splits td.n{text-align:right}
+.splits td.p{text-align:right;width:52px;font-weight:600}
+.splits td.d{text-align:right;width:72px;color:var(--muted)}
+.row-actions{display:flex;gap:8px;padding:0 14px 12px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:0 14px;border-radius:10px;font-weight:600;font-size:15px;background:var(--line)}
+.btn.primary{background:var(--accent);color:#fff}
+.btn.small{min-height:32px;font-size:13px;padding:0 10px;border-radius:8px}
+.btn.block{width:100%}
+.list-item{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);width:100%;text-align:left;min-height:52px}
+.list-item:last-child{border-bottom:0}
+.list-item .grow{flex:1;min-width:0}
+.list-item .t{font-weight:600;overflow:hidden;text-overflow:ellipsis}
+.list-item .s{font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chev{color:var(--muted)}
+.star{width:36px;height:36px;display:grid;place-items:center;border-radius:50%;flex-shrink:0;color:var(--muted)}
+.star.on{color:var(--accent)}
+.search{width:100%;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);font-size:16px;outline:none}
+.search:focus{border-color:var(--accent)}
+.empty{text-align:center;color:var(--muted);padding:40px 20px}
+.empty h2{color:var(--text);font-size:19px;margin:0 0 6px}
+.empty p{margin:0 0 16px}
+.seg{display:flex;background:var(--line);border-radius:10px;padding:2px;margin:10px 0}
+.seg button{flex:1;padding:7px 0;border-radius:8px;font-size:14px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--card);color:var(--text);box-shadow:var(--shadow)}
+.tags{display:flex;flex-wrap:wrap;gap:8px}
+.tag{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:99px;padding:6px 6px 6px 12px;font-size:14px}
+.tag button{width:22px;height:22px;border-radius:50%;background:var(--line);display:grid;place-items:center;font-size:13px;line-height:1}
+.inline-form{display:flex;gap:8px;margin-top:10px}
+.inline-form .search{flex:1}
+nav.tabs{position:fixed;bottom:0;left:0;right:0;z-index:6;display:flex;background:color-mix(in srgb,var(--card) 92%,transparent);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav.tabs button{flex:1;padding:8px 0 6px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;font-weight:600;color:var(--muted)}
+nav.tabs button.on{color:var(--accent)}
+nav.tabs svg{width:24px;height:24px}
+.toast-wrap{position:fixed;left:0;right:0;top:calc(8px + env(safe-area-inset-top));z-index:20;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;padding:0 12px}
+.toast{pointer-events:auto;max-width:520px;width:100%;background:var(--text);color:var(--bg);border-radius:14px;padding:11px 14px;font-size:14px;box-shadow:0 8px 30px rgba(0,0,0,.25);animation:tin .25s ease-out}
+.toast b{display:block;font-size:15px}
+@keyframes tin{from{transform:translateY(-12px);opacity:0}}
+.note{font-size:13px;color:var(--muted);margin:8px 4px}
+.switch-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.switch-row:last-child{border-bottom:0}
+.switch-row .grow{flex:1}
+.toggle{appearance:none;width:50px;height:30px;border-radius:99px;background:var(--line);position:relative;transition:background .2s;flex-shrink:0;cursor:pointer}
+.toggle::after{content:"";position:absolute;top:2px;left:2px;width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s}
+.toggle:checked{background:var(--ok)}
+.toggle:checked::after{transform:translateX(20px)}
+.back{color:var(--accent);font-weight:600;font-size:15px;margin-bottom:6px;display:inline-flex;align-items:center;gap:2px}
+.hidden{display:none!important}
+.hrow{display:flex;align-items:center;gap:12px}
+.club-logo{width:44px;height:44px;object-fit:contain;flex-shrink:0}
+header h1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.avatar{border-radius:50%;flex-shrink:0;display:inline-grid;place-items:center;font-weight:700;color:#fff;object-fit:cover;overflow:hidden;border:2px solid var(--card)}
+.avatar-btn{position:relative}
+.avatar-btn .cam{position:absolute;right:-2px;bottom:-2px;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:11px;border:2px solid var(--card)}
+.avatars{display:flex}
+.place.pl{position:absolute;right:-8px;bottom:-6px;min-width:24px;height:24px;font-size:12px;border-radius:12px;border:2px solid var(--card)}
+.avatars .avatar + .avatar{margin-left:-10px}
+.chip.done-big{font-size:13px;padding:3px 10px;letter-spacing:.04em}
+.scan-bar{height:3px;background:var(--line);border-radius:3px;overflow:hidden;margin:6px 4px 0}
+.scan-bar i{display:block;height:100%;background:var(--accent);transition:width .3s}
+.spinner{width:22px;height:22px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:30px auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* diagram & analys */
+:root{--s-fav1:#2a78d6;--s-fav2:#eb6834;--s-top1:#1baf7a;--s-top2:#eda100;--s-top3:#e87ba4;--grid:#e8e7e3;--ax:#6b6f76}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--s-fav1:#3987e5;--s-fav2:#d95926;--s-top1:#199e70;--s-top2:#c98500;--s-top3:#d55181;--grid:#2a2e35;--ax:#9aa0a8}}
+:root[data-theme="dark"]{--s-fav1:#3987e5;--s-fav2:#d95926;--s-top1:#199e70;--s-top2:#c98500;--s-top3:#d55181;--grid:#2a2e35;--ax:#9aa0a8}
+.chart{position:relative;margin:4px 0 2px}
+.chart svg{width:100%;height:auto;display:block;touch-action:pan-y}
+.chart .grid{stroke:var(--grid);stroke-width:1}
+.chart .zero{stroke:var(--ax);stroke-width:1;opacity:.5}
+.chart .ax{fill:var(--ax);font-size:10.5px;font-variant-numeric:tabular-nums}
+.chart .xhair{stroke:var(--ax);stroke-width:1}
+.chart .dot-ring{stroke:var(--card);stroke-width:2}
+.chart .tip{position:absolute;top:4px;min-width:130px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 9px;font-size:12.5px;box-shadow:0 6px 20px rgba(0,0,0,.14);pointer-events:none}
+.tip-h{font-size:11.5px;color:var(--muted);margin-bottom:3px}
+.tip-r{display:flex;align-items:center;gap:6px;line-height:1.5}
+.tip-r b{font-variant-numeric:tabular-nums;min-width:48px}
+.tip-r span{color:var(--muted)}
+.lk{display:inline-block;width:12px;height:3px;border-radius:2px;flex-shrink:0;vertical-align:middle;margin-right:6px}
+.tip-r .lk{margin-right:0}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12.5px;color:var(--text);margin:2px 0 2px}
+.legend em{color:var(--muted);font-style:normal}
+.chart-title{font-size:13px;font-weight:650;margin:14px 0 4px}
+.seg.cmp{margin:10px 0 0}
+.seg.cmp button{font-size:13px}
+table.an{width:100%;border-collapse:collapse;font-size:13.5px}
+table.an td{padding:5px 0;border-bottom:1px solid var(--line)}
+table.an tr.ctrl td{padding-top:12px;font-weight:650;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+table.an td.p{width:30px;font-weight:600;color:var(--muted)}
+table.an td.nm{padding-left:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
+table.an td.n{text-align:right;width:62px}
+table.an td.d{text-align:right;width:66px;color:var(--muted)}
+table.an tr.me td{font-weight:650}
+table.an tr.me td.d,table.an tr.me td.p{color:var(--text)}
+
+.fold{border-top:1px solid var(--line);margin-top:12px}
+.fold > summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:12px 0 6px;font-size:14px;font-weight:650}
+.fold > summary::-webkit-details-marker{display:none}
+.fold > summary::after{content:"";width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);margin:0 4px 4px 0;transition:transform .2s}
+.fold:not([open]) > summary::after{transform:rotate(-45deg);margin-bottom:0}
+.fold-body{padding-bottom:6px}
+.chart .band{fill:var(--ok-soft)}
+table.an .cnt{text-transform:none;letter-spacing:0;font-weight:400;float:right}
+details.fold.live-sec{border:0;margin:0}
+details.fold.live-sec > summary{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:18px 4px 8px}
+
+.eta{display:flex;gap:10px;align-items:flex-start;margin-top:10px;padding:9px 11px;border-radius:10px;background:var(--run-soft);font-size:14px}
+.eta b{font-weight:650}
+.eta-ico{font-size:18px;line-height:1.2}
+.eta-sub{font-size:12.5px;color:var(--muted);margin-top:2px}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0 4px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.tile-l{font-size:12.5px;color:var(--muted)}
+.tile-v{font-size:26px;font-weight:650;margin-top:2px}
+nav.tabs button{font-size:10.5px}
+</style>
+</head>
+<body>
+<header>
+  <div class="hrow"><img id="clubLogo" class="club-logo hidden" alt="IFK Göteborg Orientering"><div style="min-width:0">
+  <h1 id="hTitle">Kjellberger LiveOL</h1>
+  <div class="sub" id="hSub"><span class="dot" id="liveDot"></span><span id="hStatus">Välj en tävling</span></div>
+  </div></div>
+</header>
+<main id="view"></main>
+<div class="toast-wrap" id="toasts"></div>
+<nav class="tabs">
+  <button data-tab="live" class="on">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>Live</button>
+  <button data-tab="browse">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Klasser</button>
+  <button data-tab="comps">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4l7 3 7-3v11l-7 3-7-3"/></svg>Tävlingar</button>
+  <button data-tab="history">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V4M4 20h16M8 15l4-5 3 3 5-6"/></svg>Historik</button>
+  <button data-tab="follow">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg>Följer</button>
+</nav>
+
+<script>
+"use strict";
+/* ================== Config ================== */
+const API = "https://liveresultat.orientering.se/api.php";
+const POLL_MS = 15000;          // API cachar i 15 s – oftare är meningslöst
+const CLUB_REFRESH_MS = 60000;  // hur ofta klubblistor (vilka löpare/klasser) uppdateras
+const STATUS = {0:"OK",1:"Ej start",2:"Utgått",3:"Felst.",4:"Diskv.",5:"Maxtid",9:"Ej start. än",10:"Ej start. än",11:"Återbud",12:"Uppflyttad"};
+
+/* ================== Storage (säker) ================== */
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem("ollive."+k); return v==null ? d : JSON.parse(v); }catch{ return d; } },
+  set(k, v){ try{ localStorage.setItem("ollive."+k, JSON.stringify(v)); }catch{} }
+};
+
+/* ================== Förinställt ================== */
+// Löparna som följs från start. Kan ändras i appen under Följer.
+const DEFAULT_ALT_CLUBS = ["Göteborgs Orienteringsförbund", "Göteborgs OF", "GOF", "Sverige", "Sweden"];
+const DEFAULT_FAVS = [
+  {name:"Noel Kjellberger", club:"IFK Göteborg Orientering"},
+  {name:"Moa Kjellberger",  club:"IFK Göteborg Orientering"},
+];
+const SCAN_MS = 10*60000; // hur ofta hela tävlingen genomsöks om en favorit inte hittas via klubben
+
+/* ================== State ================== */
+const S = {
+  tab: "live",
+  comp: store.get("comp", null),                 // {id,name,organizer,date,timediff}
+  clubs: store.get("clubs", []),                 // följda klubbar (namn exakt som i LiveResults)
+  favs: store.get("favs", null) ?? DEFAULT_FAVS,  // [{name, club}]
+  notify: store.get("notify", true),
+  compList: null,
+  runners: new Map(),                            // key -> runner
+  classData: new Map(),                          // className -> {hash, splitcontrols, results}
+  clubHashes: new Map(),
+  classesOfInterest: new Set(),
+  lastClubFetch: 0,
+  lastOk: 0, error: null, loading: false,
+  expanded: new Set(),
+  browseClass: null, browseComps: "today", compQuery: "",
+  seen: new Map(),                                // key -> signature for change detection
+  primed: false,
+  lastScan: 0, scanHits: new Map(),
+  altClubs: store.get("altclubs", null) ?? DEFAULT_ALT_CLUBS,
+};
+const keyOf = (name, club) => (name||"").trim().toLowerCase() + "|" + (club||"").trim().toLowerCase();
+const normName = n => (n||"").toLowerCase().replace(/\s+/g," ").trim();
+// Klubbnamn skrivs olika ("IFK Göteborg", "IFK Göteborg Orientering", "IFK Göteborg OK") – jämför kärnan
+const normClub = c => (c||"").toLowerCase().replace(/[.,\-]/g," ").replace(/(^|\s)(orientering|orienteering|orienteringsklubb|ok|sok)(?=\s|$)/g, " ").replace(/\s+/g," ").trim();
+const sameClub = (a,b) => { const x = normClub(a), y = normClub(b); return !x || !y || x === y || x.startsWith(y) || y.startsWith(x); };
+// Andra "klubbar" barnen kan tävla för (distriktslag, landslag m.m.). Kan ändras under Följer.
+const altClubs = () => S.altClubs || [];
+const favClubs = () => [...new Set([...S.favs.map(f=>f.club), ...altClubs()].filter(Boolean).map(c=>c.trim()))];
+const favOf = (name, club) => S.favs.find(f => normName(f.name) === normName(name) && (sameClub(f.club, club) || altClubs().some(a => normClub(a) === normClub(club))));
+const isFav = (name, club) => !!favOf(name, club);
+function clubVariants(club){
+  const c = (club||"").trim(), core = c.replace(/\s+(orientering|orienteering|ok|sok)$/i,"").trim();
+  return [...new Set([c, core, core + " OK"].filter(Boolean))];
+}
+const isClubFollowed = club => S.clubs.some(c => c.toLowerCase() === (club||"").toLowerCase());
+
+/* ================== API ================== */
+async function api(params){
+  const url = API + "?" + new URLSearchParams(params).toString();
+  const res = await fetch(url, {cache:"no-store"});
+  if(!res.ok) throw new Error("HTTP " + res.status);
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch { return JSON.parse(text.replace(/[\u0000-\u001f]/g, " ")); } // skydd mot kontrolltecken i namn
+}
+
+/* ================== Tid ================== */
+// Tider i API:et är hundradelar. start = hundradelar sedan midnatt (tävlingens lokala tid).
+function fmt(cs){
+  if(cs == null || cs === "" || isNaN(cs)) return "";
+  let s = Math.floor(Math.abs(cs)/100);
+  const h = Math.floor(s/3600); s -= h*3600;
+  const m = Math.floor(s/60); s -= m*60;
+  const p = n => String(n).padStart(2,"0");
+  return (h ? h + ":" + p(m) : m) + ":" + p(s);
+}
+const fmtPlus = cs => (cs == null || cs === "" || isNaN(cs)) ? "" : (cs <= 0 ? "±0" : "+" + fmt(cs));
+function fmtClock(cs){ if(cs == null || isNaN(cs) || cs <= 0) return ""; const s=Math.floor(cs/100); return String(Math.floor(s/3600)%24).padStart(2,"0")+":"+String(Math.floor(s/60)%60).padStart(2,"0"); }
+// Nu i tävlingens lokala tid, hundradelar sedan midnatt. API:ets timediff = timmar relativt svensk tid.
+function nowCompCs(){
+  const parts = new Intl.DateTimeFormat("sv-SE",{timeZone:"Europe/Stockholm",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"}).formatToParts(new Date());
+  const g = t => +parts.find(p=>p.type===t).value;
+  const td = (S.comp && +S.comp.timediff) || 0;
+  return ((g("hour")+td)*3600 + g("minute")*60 + g("second"))*100 + Math.floor(Date.now()%1000/10);
+}
+function todayStr(){ return new Intl.DateTimeFormat("sv-SE",{timeZone:"Europe/Stockholm"}).format(new Date()); }
+const num = v => { if(v==null || v==="") return null; const n = parseInt(String(v).replace("+",""),10); return isNaN(n) ? null : n; };
+
+/* ================== Normalisering ================== */
+function normalizeRunner(r, className, splitcontrols){
+  const status = +r.status;
+  const splits = (splitcontrols||[]).map(sc => {
+    const sp = r.splits || {};
+    const t = num(sp[sc.code]);
+    return { code: sc.code, name: sc.name, time: t && t > 0 ? t : null,
+      status: +(sp[sc.code+"_status"] ?? 0), place: sp[sc.code+"_place"] ?? "", plus: num(sp[sc.code+"_timeplus"]) };
+  });
+  return {
+    name: r.name, club: r.club, cls: className || r.class,
+    status, place: (r.place ?? "").toString(), result: num(r.result),
+    plus: num(r.timeplus), start: num(r.start), progress: r.progress != null ? +r.progress : null,
+    splits, hasSplits: !!splitcontrols,
+  };
+}
+function phase(r){
+  if(r.status === 0 && r.result != null && r.result > 0) return "done";
+  if([1,2,3,4,5,11,12].includes(r.status)) return "out";
+  if(r.start != null && r.start > 0 && nowCompCs() >= r.start) return "run";
+  return "wait";
+}
+
+/* ================== Avatarer & logga ================== */
+S.avatars = store.get("avatars", {});   // normName -> dataURL
+const AV_COLORS = ["#1c6dd0","#e8590c","#2b8a3e","#9c36b5","#c92a2a","#0b7285"];
+function avatar(name, size=40){
+  const src = S.avatars[normName(name)];
+  if(src) return `<img class="avatar" src="${src}" alt="" style="width:${size}px;height:${size}px">`;
+  const ini = (name||"?").split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase();
+  let h = 0; for(const ch of normName(name)) h = (h*31 + ch.charCodeAt(0)) >>> 0;
+  const fi = S.favs.findIndex(f => normName(f.name) === normName(name));   // samma färg som i diagrammen
+  const bg = fi === 0 ? "var(--s-fav1)" : fi === 1 ? "var(--s-fav2)" : AV_COLORS[h%AV_COLORS.length];
+  return `<span class="avatar" style="width:${size}px;height:${size}px;font-size:${Math.round(size*.38)}px;background:${bg}">${esc(ini)}</span>`;
+}
+// Läs en bild från telefonen, beskär och krymp så den ryms i appens lagring
+function pickImage({square=true, max=256, type="image/jpeg"} = {}){
+  return new Promise(resolve => {
+    const inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*";
+    inp.onchange = () => {
+      const f = inp.files && inp.files[0]; if(!f) return resolve(null);
+      const img = new Image(), url = URL.createObjectURL(f);
+      img.onload = () => {
+        let sx=0, sy=0, sw=img.width, sh=img.height;
+        if(square){ const m = Math.min(sw,sh); sx=(sw-m)/2; sy=(sh-m)/2; sw=sh=m; }
+        const k = Math.min(1, max/Math.max(sw,sh));
+        const c = document.createElement("canvas"); c.width = Math.round(sw*k); c.height = Math.round(sh*k);
+        c.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url); resolve(c.toDataURL(type, .85));
+      };
+      img.onerror = () => resolve(null);
+      img.src = url;
+    };
+    inp.click();
+  });
+}
+function applyLogo(){
+  const el = document.getElementById("clubLogo");
+  const saved = store.get("logo", null);
+  el.onerror = () => el.classList.add("hidden");
+  el.onload = () => el.classList.remove("hidden");
+  el.src = saved || "logo.png";   // logo.png i samma mapp som appen, eller uppladdad i appen
+}
+
+/* ================== Tävlingar där barnen är anmälda ================== */
+const PAST_DAYS = 60;          // minst så långt bakåt vi letar (annars från årets början)
+const ENTRY_TTL = 10*60000;    // dagens/kommande tävlingar kontrolleras om efter 10 min
+S.entries = store.get("entries2", {});   // compId -> {t, names:[...], rows:[klubbresultat för mina löpare]}
+S.scan = {running:false, done:0, total:0};
+async function scanCompetitions(){
+  if(S.scan.running || !S.compList) return;
+  const today = todayStr(), back = new Date(Date.parse(today) - PAST_DAYS*864e5).toISOString().slice(0,10);
+  const from = [today.slice(0,4) + "-01-01", back].sort()[0];   // säsongen = från 1 januari
+  const clubs = favClubs();
+  const missing = c => { const e = S.entries[c.id]; return clubs.filter(cl => !(e && e.clubs && e.clubs.includes(cl))); };
+  const todo = S.compList.filter(c => c.date >= from && c.date < "2099").filter(c => {
+    const e = S.entries[c.id]; if(!e || missing(c).length) return true;
+    return c.date >= today && Date.now() - e.t > ENTRY_TTL;   // avslutade tävlingar ändras inte
+  }).sort((a,b) => (b.date >= today) - (a.date >= today) || (a.date >= today ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date)));
+  if(!todo.length || !clubs.length) return;
+  S.scan = {running:true, done:0, total:todo.length};
+  const queue = [...todo];
+  let lastDraw = 0;
+  const worker = async () => { while(queue.length){ const c = queue.shift();
+    try{
+      const prev = S.entries[c.id];
+      const fresh = !prev || (c.date >= today && Date.now() - prev.t > ENTRY_TTL);
+      const ask = fresh ? clubs : missing(c);
+      const hits = new Set(fresh ? [] : prev.names), rows = fresh ? [] : [...(prev.rows||[])];
+      for(const club of ask){
+        const d = await api({method:"getclubresults", comp:c.id, club, unformattedTimes:"true"});
+        for(const r of (d.results||[])){ const f = favOf(r.name, r.club); if(f){ hits.add(f.name);
+          if(!rows.some(x => normName(x.name) === normName(r.name) && x.class === r.class))
+            rows.push({name:r.name, club:r.club, class:r.class, result:r.result, status:r.status, place:r.place, timeplus:r.timeplus}); } }
+      }
+      S.entries[c.id] = {t: fresh ? Date.now() : prev.t, names:[...hits], rows, clubs: fresh ? clubs : [...new Set([...(prev.clubs||[]), ...ask])]};
+    }catch{}
+    S.scan.done++;
+    if(S.scan.done % 50 === 0) store.set("entries2", S.entries);
+    if(Date.now() - lastDraw > 400){ lastDraw = Date.now(); if(S.tab === "comps") drawComps(); if(S.tab === "history") renderHistory(); }
+  } };
+  await Promise.all(Array.from({length:6}, worker));
+  S.scan.running = false;
+  store.set("entries2", S.entries);
+  if(S.tab === "comps") drawComps();
+  if(S.tab === "history") renderHistory();
+}
+
+/* ================== Datahämtning ================== */
+let pollTimer = null, tickTimer = null, busy = false;
+
+async function refreshClubs(){
+  const clubs = new Set([...S.clubs.map(c=>c.trim()), ...favClubs()]);
+  const found = new Map();
+  await Promise.all([...clubs].map(async club => {
+    const prev = S.clubHashes.get(club);
+    const p = {method:"getclubresults", comp:S.comp.id, club, unformattedTimes:"true"};
+    if(prev) p.last_hash = prev.hash;
+    const d = await api(p);
+    let results;
+    if(d.status === "NOT MODIFIED" && prev) results = prev.results;
+    else { results = d.results || []; S.clubHashes.set(club, {hash:d.hash, results}); }
+    const clubFollowed = isClubFollowed(club);
+    for(const r of results){
+      if(clubFollowed || isFav(r.name, r.club)) found.set(keyOf(r.name, r.club), r);
+    }
+  }));
+  // Favoriter som inte hittades via klubben: sök igenom alla klasser (då och då)
+  const missing = S.favs.filter(f => ![...found.values()].some(r => normName(r.name) === normName(f.name)));
+  if(missing.length && Date.now() - S.lastScan > SCAN_MS) await scanAllClasses();
+  for(const r of S.scanHits.values()) if(isFav(r.name, r.club)) found.set(keyOf(r.name, r.club), r);
+  S.classesOfInterest = new Set([...found.values()].map(r => r.class).filter(Boolean));
+  // lägg in löpare direkt från klubbresultat (utan mellantider) så listan syns snabbt
+  for(const [k, r] of found){
+    if(!S.runners.has(k)) S.runners.set(k, normalizeRunner(r, r.class, null));
+  }
+  for(const k of [...S.runners.keys()]) if(!found.has(k)) S.runners.delete(k);
+  S.lastClubFetch = Date.now();
+}
+
+async function scanAllClasses(){
+  S.lastScan = Date.now();
+  const d = await api({method:"getclasses", comp:S.comp.id});
+  const classes = (d.classes||[]).map(c=>c.className);
+  S.classList = classes;
+  const queue = [...classes];
+  const worker = async () => { while(queue.length){ const c = queue.shift();
+    try{ const e = await refreshClass(c);
+      for(const r of e.results) if(isFav(r.name, r.club)) S.scanHits.set(keyOf(r.name, r.club), {...r, class:c});
+    }catch{} } };
+  await Promise.all([worker(), worker(), worker(), worker()]);
+}
+
+async function refreshClass(cls){
+  const prev = S.classData.get(cls);
+  const p = {method:"getclassresults", comp:S.comp.id, class:cls, unformattedTimes:"true"};
+  if(prev) p.last_hash = prev.hash;
+  const d = await api(p);
+  if(d.status === "NOT MODIFIED" && prev) return prev;
+  const entry = {hash:d.hash, splitcontrols:d.splitcontrols||[], results:d.results||[]};
+  S.classData.set(cls, entry);
+  return entry;
+}
+
+async function poll(){
+  if(!S.comp || busy) return;
+  busy = true;
+  try{
+    if(Date.now() - S.lastClubFetch > CLUB_REFRESH_MS || S.classesOfInterest.size === 0) await refreshClubs();
+    const classes = [...S.classesOfInterest];
+    await Promise.all(classes.map(c => refreshClass(c).then(entry => {
+      for(const r of entry.results){
+        const k = keyOf(r.name, r.club);
+        if(S.runners.has(k)) S.runners.set(k, normalizeRunner(r, c, entry.splitcontrols));
+      }
+    })));
+    // valfritt: bläddrad klass hålls också färsk
+    if(S.tab === "browse" && S.browseClass && !S.classesOfInterest.has(S.browseClass)) await refreshClass(S.browseClass);
+    S.error = null; S.lastOk = Date.now();
+    detectChanges();
+  }catch(e){
+    S.error = "Kunde inte nå LiveResults (" + e.message + ")";
+  }finally{
+    busy = false; S.loading = false;
+    renderHeader(); if(S.tab === "live" || S.tab === "browse") render();
+  }
+}
+
+function startPolling(){
+  stopPolling();
+  if(!S.comp) return;
+  poll();
+  pollTimer = setInterval(poll, POLL_MS);
+}
+function stopPolling(){ clearInterval(pollTimer); pollTimer = null; }
+function resetData(){
+  S.runners.clear(); S.classData.clear(); S.clubHashes.clear(); S.classesOfInterest = new Set();
+  S.lastClubFetch = 0; S.seen.clear(); S.primed = false; S.expanded.clear(); S.lastScan = 0; S.scanHits = new Map();
+}
+
+/* ================== Notiser ================== */
+function signature(r){ return [r.status, r.result, r.splits.filter(s=>s.time).length].join("/"); }
+function detectChanges(){
+  for(const [k, r] of S.runners){
+    if(!r.hasSplits) continue;           // vänta tills vi har klassdata
+    const sig = signature(r), old = S.seen.get(k);
+    S.seen.set(k, sig);
+    if(!S.primed || old === undefined || old === sig) continue;
+    const [os, ores, osp] = old.split("/");
+    const n = r.splits.filter(s=>s.time).length;
+    if(phase(r) === "done" && (ores === "null" || ores === "" || +os !== 0)){
+      const place = r.place && r.place !== "-" ? `Plats ${r.place}` : "";
+      alertUser(`🏁 ${r.name} i mål`, `${fmt(r.result)} ${fmtPlus(r.plus)} · ${place} · ${r.cls}`.replace(/ · $/,""), k);
+    } else if(n > +osp){
+      const sp = [...r.splits].reverse().find(s=>s.time);
+      alertUser(`${r.name} · ${sp.name}`, `${fmt(sp.time)} · Plats ${sp.place||"–"} ${fmtPlus(sp.plus)} · ${r.cls}`, k);
+    } else if(+os !== r.status && [1,2,3,4,5].includes(r.status)){
+      alertUser(`${r.name}: ${STATUS[r.status]}`, r.cls, k);
+    }
+  }
+  const allHave = [...S.runners.values()].every(r=>r.hasSplits);
+  if(allHave) S.primed = true;
+}
+function alertUser(title, body, tag){
+  toast(title, body);
+  if(!S.notify || !("Notification" in window) || Notification.permission !== "granted") return;
+  const opts = {body, tag, icon:"icon-192.png", badge:"icon-192.png"};
+  if(navigator.serviceWorker?.controller){
+    navigator.serviceWorker.ready.then(reg => reg.showNotification(title, opts)).catch(()=>{});
+  } else { try{ new Notification(title, opts); }catch{} }
+}
+function toast(title, body){
+  const t = document.createElement("div"); t.className = "toast";
+  const b = document.createElement("b"); b.textContent = title; t.append(b, document.createTextNode(body||""));
+  const wrap = document.getElementById("toasts"); wrap.prepend(t);
+  while(wrap.children.length > 3) wrap.lastChild.remove();
+  setTimeout(()=>t.remove(), 6000);
+  t.onclick = () => t.remove();
+}
+async function askNotify(){
+  if(!("Notification" in window)){
+    toast("Notiser stöds inte här", "På iPhone: lägg appen på hemskärmen (Dela → Lägg till på hemskärmen) och öppna den därifrån.");
+    return false;
+  }
+  const p = await Notification.requestPermission();
+  if(p !== "granted") toast("Notiser avstängda", "Du kan tillåta dem i iPhones Inställningar → Notiser → Kjellberger LiveOL.");
+  return p === "granted";
+}
+
+/* ================== Wake lock ================== */
+let wakeLock = null;
+async function setWake(on){
+  store.set("wake", on);
+  try{
+    if(on && "wakeLock" in navigator){ wakeLock = await navigator.wakeLock.request("screen"); }
+    else if(wakeLock){ await wakeLock.release(); wakeLock = null; }
+  }catch{}
+}
+
+/* ================== Mellantidsanalys: topp 3 + mina löpare ================== */
+S.cmp = {};   // klass -> "leader" eller namnet på löparen man jämför mot
+function classAnalysis(cls, focus){
+  const d = S.classData.get(cls); if(!d) return null;
+  const ctrls = [...d.splitcontrols.map(sc => ({name: sc.name})), {name: "Mål"}];
+  const rs = d.results.map(r => normalizeRunner(r, cls, d.splitcontrols));
+  const valid = r => ![1,2,3,4,5,11,12].includes(r.status);
+  const times = rs.map(r => ctrls.map((c,i) => {
+    if(!valid(r)) return null;
+    if(i < ctrls.length-1) return r.splits[i].time || null;
+    return phase(r) === "done" ? r.result : null;
+  }));
+  // Ögonblicksbild per kontroll: alla som passerat just nu, sorterade på tid
+  const snap = ctrls.map((c,i) => rs.map((r,ri) => ({ri, t: times[ri][i]})).filter(o => o.t != null).sort((a,b) => a.t - b.t));
+  const placeOf = (i, t) => 1 + snap[i].findIndex(o => o.t === t);   // lika tid = samma plats
+  const best = snap.map(s => s.length ? s[0].t : null);
+  const lastIdx = [...ctrls.keys()].reverse().find(i => best[i] != null);
+  const ptsOf = ri => ctrls.map((c,i) => { const t = times[ri][i]; return t == null ? null : {t, p: placeOf(i,t), plus: t - best[i]}; });
+  // Mina löpare (favoriter i klassen, annars den utfällda löparen)
+  const favIdx = n => S.favs.findIndex(f => normName(f.name) === normName(n));
+  const mine = rs.map((r,ri) => ri).filter(ri => isFav(rs[ri].name, rs[ri].club) || (focus && normName(rs[ri].name) === normName(focus)))
+    .map(ri => { const fi = favIdx(rs[ri].name);
+      return {ri, name: rs[ri].name, short: rs[ri].name.split(" ")[0], fav: true,
+        color: fi === 1 ? "var(--s-fav2)" : "var(--s-fav1)", pts: ptsOf(ri)}; });
+  // Pallplatser som referens: den som ligger 1:a/2:a/3:a vid respektive kontroll just nu
+  const podium = [1,2,3].map(k => ({name: k === 1 ? "Ledaren" : k + ":a", short: k === 1 ? "Ledaren" : k + ":a", fav: false, top: k,
+    color: `var(--s-top${k})`,
+    pts: ctrls.map((c,i) => { const o = snap[i][k-1]; return o ? {t: o.t, p: k, plus: o.t - best[i], who: rs[o.ri].name} : null; })}));
+  return {ctrls, snap, rs, mine, podium, lastIdx, ptsOf, placeOf, best};
+}
+function diffFmt(cs){ if(cs == null) return ""; const r = Math.round(cs/100)*100; if(r === 0) return "±0"; return (r < 0 ? "−" : "+") + fmt(Math.abs(r)); }
+
+// Hopfällbara delar – valet sparas i telefonen
+S.fold = store.get("fold", {});
+function foldSec(id, title, body, defOpen = true){
+  const open = S.fold[id] ?? defOpen;
+  return `<details class="fold" data-fold="${id}" ${open ? "open" : ""}><summary>${title}</summary><div class="fold-body">${body}</div></details>`;
+}
+document.addEventListener("toggle", e => {
+  const el = e.target; if(!el.matches || !el.matches("details[data-fold]")) return;
+  S.fold[el.dataset.fold] = el.open; store.set("fold", S.fold);
+}, true);
+
+function analysisHtml(r){
+  const A = classAnalysis(r.cls, r.name); if(!A) return `<div class="note">Hämtar mellantider…</div>`;
+  if(A.lastIdx == null) return `<div class="note">Inga mellantider i klassen än.</div>`;
+  const mode = S.cmp[r.cls] && (S.cmp[r.cls] === "leader" || A.mine.some(s => s.name === S.cmp[r.cls])) ? S.cmp[r.cls] : "leader";
+  const ref = mode === "leader" ? null : A.mine.find(s => s.name === mode);
+  const diffAt = (p, i) => { if(!p) return null; if(!ref) return p.plus; const q = ref.pts[i]; return q ? p.t - q.t : null; };
+  const seg = `<div class="seg cmp">${[["leader","Mot ledaren"], ...A.mine.map(s=>[s.name,"Mot "+s.short])]
+      .map(([v,l]) => `<button data-act="cmp" data-cls="${esc(r.cls)}" data-v="${esc(v)}" class="${mode===v?"on":""}">${esc(l)}</button>`).join("")}</div>`;
+  const key = c => `<i class="lk" style="background:${c}"></i>`;
+  const mineIdx = new Set(A.mine.map(s => s.ri));
+  // Tabell: ställningen vid varje kontroll just nu – topp 3 + mina löpare
+  const rows = A.ctrls.map((c,i) => {
+    const sn = A.snap[i]; if(!sn.length) return "";
+    const pick = sn.filter((o,k) => k < 3 || mineIdx.has(o.ri));
+    return `<tr class="ctrl"><td colspan="4">${esc(c.name)} <span class="cnt">${sn.length} passerat</span></td></tr>` + pick.map(o => {
+      const me = A.mine.find(s => s.ri === o.ri), p = A.placeOf(i, o.t);
+      return `<tr class="${me?"me":""}"><td class="p tnum">${p}</td><td class="nm">${me ? key(me.color) : ""}${esc(A.rs[o.ri].name)}</td>
+      <td class="n tnum">${fmt(o.t)}</td><td class="d tnum">${diffFmt(diffAt({t:o.t, plus:o.t - A.best[i]}, i))}</td></tr>`; }).join("");
+  }).join("");
+  const table = `<table class="an">${rows}</table><p class="note" style="margin:6px 0 0">Ställningen vid varje kontroll just nu, bland alla som passerat den. ${ref ? "− = före " + esc(ref.short) + ", + = efter." : "+ = efter ledaren vid kontrollen."}</p>`;
+
+  const xs = A.ctrls.map(c => c.name);
+  const minePlace = A.mine.map(s => ({...s, values: s.pts.map(p => p ? p.p : null)}));
+  const legendOf = arr => `<div class="legend">${arr.map(s => `<span>${key(s.color)}${esc(s.short)}</span>`).join("")}</div>`;
+  const placeChart = legendOf(A.mine) + lineChart({xs, series: minePlace, invert:true, integer:true, band:[1,3],
+    fmtY: v => String(v), fmtTip: v => v + ":a", minMax:[1, null]}) + `<p class="note" style="margin:2px 0 0">Tonat fält = pallplats (1–3) vid kontrollen.</p>`;
+  const diffSeries = [...A.podium.filter(s => !ref || true), ...A.mine].map(s => ({...s, values: s.pts.map((p,i) => diffAt(p,i))}));
+  const diffChart = legendOf(diffSeries) + lineChart({xs, series: diffSeries, invert:true, fmtY: diffFmt, fmtTip: diffFmt, zero:true})
+    + `<p class="note" style="margin:2px 0 0">Ledaren/2:a/3:a = den som ligger där vid respektive kontroll just nu. Uppåt = bättre.</p>`;
+  const names = A.mine.map(s => s.short).join(" & ");
+  return seg
+    + foldSec("tbl", `Topp 3 + ${esc(names)} per kontroll`, table)
+    + foldSec("plc", "Trend: placering", placeChart)
+    + foldSec("dif", ref ? "Trend: tid före/efter " + esc(ref.short) : "Trend: tid efter ledaren", diffChart);
+}
+
+// Enkelt linjediagram i SVG. Uppåt = bättre (invert). Tooltip via tryck/hover.
+const CHARTS = new Map(); let chartSeq = 0;
+function lineChart({xs, series, invert, integer, fmtY, fmtTip, minMax, zero, band, connect, pctSteps}){
+  const id = "ch" + (++chartSeq);
+  const W = 340, H = 180, L = 44, R = 14, T = 10, B = 34;
+  const vals = series.flatMap(s => s.values).filter(v => v != null);
+  if(!vals.length) return `<div class="note">Inga data än.</div>`;
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  if(minMax){ if(minMax[0] != null) lo = Math.min(lo, minMax[0]); }
+  if(zero){ lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
+  // snygga steg
+  let ticks;
+  if(integer){ hi = Math.max(hi, lo+(band?4:2)); const step = Math.max(1, Math.ceil((hi-lo)/4)); ticks = []; for(let v=lo; v<=hi; v+=step) ticks.push(v); if(ticks[ticks.length-1] < hi) ticks.push(hi); }
+  else {
+    const span = pctSteps ? Math.max(hi-lo, 4) : Math.max(hi-lo, 3000), steps = pctSteps ? [1,2,5,10,20,25,50,100,200] : [1000,1500,3000,6000,12000,30000,60000,120000,300000,600000];
+    const step = steps.find(s => span/s <= 4) || 600000;
+    lo = Math.floor(lo/step)*step; hi = Math.ceil(hi/step)*step; if(hi === lo) hi = lo + step;
+    ticks = []; for(let v=lo; v<=hi+1; v+=step) ticks.push(v);
+  }
+  const x = i => xs.length === 1 ? L + (W-L-R)/2 : L + i*(W-L-R)/(xs.length-1);
+  const y = v => { const f = (v-lo)/((hi-lo)||1); return invert ? T + f*(H-T-B) : H-B - f*(H-T-B); };
+  let g = ticks.map(v => `<line class="grid" x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}"/><text class="ax" x="${L-6}" y="${y(v)+3.5}" text-anchor="end">${esc(fmtY(v))}</text>`).join("");
+  if(band){ const cl = v => Math.max(T, Math.min(H-B, v)); const y1 = cl(y(band[0] - .4)), y2 = cl(y(band[1] + .4)); g = `<rect class="band" x="${L}" width="${W-L-R}" y="${Math.min(y1,y2)}" height="${Math.abs(y2-y1)}" rx="4"/>` + g; }
+  if(zero && !integer) g += `<line class="zero" x1="${L}" x2="${W-R}" y1="${y(0)}" y2="${y(0)}"/>`;
+  const every = Math.ceil(xs.length / 6);
+  g += xs.map((n,i) => (i % every === 0 || i === xs.length-1) ? `<text class="ax" x="${x(i)}" y="${H-B+16}" text-anchor="middle">${esc(n.length > 8 ? n.slice(0,7)+"…" : n)}</text>` : "").join("");
+  // favoriter ritas sist så de ligger överst
+  const ordered = [...series].sort((a,b) => a.fav - b.fav);
+  const lines = ordered.map(s => {
+    let d = "", pen = false;
+    s.values.forEach((v,i) => { if(v == null){ if(!connect) pen = false; return; } d += (pen ? "L" : "M") + x(i).toFixed(1) + "," + y(v).toFixed(1); pen = true; });
+    const dots = s.values.map((v,i) => v == null ? "" : `<circle cx="${x(i)}" cy="${y(v)}" r="${s.fav?4.5:3.5}" fill="${s.color}" class="dot-ring"/>`).join("");
+    return `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.fav?2.5:2}" stroke-linejoin="round" stroke-linecap="round"/>${dots}`;
+  }).join("");
+  CHARTS.set(id, {xs, series, fmtTip, x, W, H, T, B});
+  return `<div class="chart" data-chart="${id}"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Diagram">${g}
+    <line class="xhair" x1="0" x2="0" y1="${T}" y2="${H-B}" style="display:none"/>${lines}
+    <rect x="${L-10}" y="0" width="${W-L-R+20}" height="${H}" fill="transparent" class="hit"/></svg><div class="tip" hidden></div></div>`;
+}
+function chartPointer(e){
+  const box = e.target.closest(".chart"); if(!box) return;
+  const C = CHARTS.get(box.dataset.chart); if(!C) return;
+  const svg = box.querySelector("svg"), rect = svg.getBoundingClientRect();
+  const sx = (e.clientX - rect.left) / rect.width * C.W;
+  let bi = 0, bd = 1e9; C.xs.forEach((_,i) => { const dd = Math.abs(C.x(i) - sx); if(dd < bd){ bd = dd; bi = i; } });
+  const xh = svg.querySelector(".xhair"); xh.style.display = ""; xh.setAttribute("x1", C.x(bi)); xh.setAttribute("x2", C.x(bi));
+  const tip = box.querySelector(".tip"); tip.hidden = false; tip.textContent = "";
+  const h = document.createElement("div"); h.className = "tip-h"; h.textContent = C.xs[bi]; tip.append(h);
+  C.series.filter(s => s.values[bi] != null).sort((a,b) => a.values[bi] - b.values[bi]).forEach(s => {
+    const row = document.createElement("div"); row.className = "tip-r";
+    const k = document.createElement("i"); k.className = "lk"; k.style.background = s.color;
+    const v = document.createElement("b"); v.textContent = C.fmtTip(s.values[bi]);
+    const n = document.createElement("span"); n.textContent = s.short + (s.pts && s.pts[bi] && s.pts[bi].who ? " · " + s.pts[bi].who.split(" ").slice(-1)[0] : "");
+    row.append(k, v, n); tip.append(row);
+  });
+  if(tip.children.length === 1){ tip.hidden = true; return; }
+  const px = C.x(bi) / C.W * rect.width;
+  tip.style.left = Math.max(0, Math.min(rect.width - 150, px + (px > rect.width/2 ? -160 : 12))) + "px";
+}
+document.addEventListener("pointermove", e => { if(e.pointerType === "mouse") chartPointer(e); });
+document.addEventListener("pointerdown", chartPointer);
+document.addEventListener("pointerdown", e => { if(!e.target.closest(".chart")) document.querySelectorAll(".chart .tip").forEach(t => t.hidden = true); }, true);
+
+/* ================== Beräknad målgång ================== */
+// Jämför löparens tid vid senaste kontroll med dem i klassen som redan gått i mål
+function predictFinish(r){
+  const A = classAnalysis(r.cls); if(!A || !r.start) return null;
+  const me = A.rs.findIndex(x => normName(x.name) === normName(r.name) && x.club === r.club); if(me < 0) return null;
+  const F = A.ctrls.length - 1;
+  const pts = A.ptsOf(me);
+  const k = [...Array(F).keys()].reverse().find(i => pts[i]); if(k == null) return null;
+  const tk = pts[k].t;
+  let refs = A.snap[F].map(o => ({f: o.t, s: A.ptsOf(o.ri)[k]?.t})).filter(o => o.s);
+  if(!refs.length) return null;
+  const near = refs.filter(o => Math.abs(o.s - tk) / tk < .25);
+  if(near.length >= 3) refs = near;
+  const ratios = refs.map(o => o.f / o.s).sort((a,b) => a-b);
+  const q = p => ratios[Math.min(ratios.length-1, Math.max(0, Math.round(p*(ratios.length-1))))];
+  const pred = tk * q(.5), lo = tk * q(.25), hi = tk * q(.75);
+  const finishers = A.snap[F].map(o => o.t);
+  const placeFor = t => 1 + finishers.filter(x => x < t).length;
+  return {pred, clock: r.start + pred, placeLo: placeFor(lo), placeHi: placeFor(hi), basis: refs.length, at: A.ctrls[k].name};
+}
+function etaText(clockCs){
+  const d = clockCs - nowCompCs();
+  if(d <= 0) return "när som helst";
+  const m = Math.round(d / 6000);
+  return m < 1 ? "om under 1 min" : `om ${m} min`;
+}
+function predictHtml(r){
+  const p = predictFinish(r); if(!p) return "";
+  const pl = p.placeLo === p.placeHi ? `plats ~${p.placeLo}` : `plats ~${p.placeLo}–${p.placeHi}`;
+  return `<div class="eta"><span class="eta-ico">🏁</span><div><b>Beräknad målgång ${fmtClock(p.clock)}</b> <span data-eta="${Math.round(p.clock)}">${etaText(p.clock)}</span>
+    <div class="eta-sub">Löptid ca ${fmt(p.pred)} · ${pl} · jämfört med ${p.basis} i mål</div></div></div>`;
+}
+
+/* ================== Nedräkning & startnotis ================== */
+S.notified = new Set();
+function countdownText(startCs){
+  const d = startCs - nowCompCs();
+  if(d <= 0) return "Startar nu";
+  return "Startar om " + fmt(d);
+}
+function checkStartAlerts(){
+  if(!S.comp) return;
+  const now = nowCompCs();
+  for(const r of S.runners.values()){
+    if(!isFav(r.name, r.club) || phase(r) !== "wait" || !r.start) continue;
+    const key = S.comp.id + "|start|" + r.name;
+    const d = r.start - now;
+    if(d > 0 && d <= 30000 && !S.notified.has(key)){
+      S.notified.add(key);
+      alertUser(`⏱ ${r.name} startar om ${Math.max(1, Math.round(d/6000))} min`, `Start ${fmtClock(r.start)} · ${r.cls}`, key);
+    }
+  }
+}
+
+/* ================== Dela resultat som bild ================== */
+function loadImg(src){ return new Promise(res => { if(!src) return res(null); const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; }); }
+async function shareResult(r){
+  const A = classAnalysis(r.cls);
+  const W = 1080, H = 1350, c = document.createElement("canvas"); c.width = W; c.height = H;
+  const g = c.getContext("2d");
+  const font = (w, s) => `${w} ${s}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+  const fi = S.favs.findIndex(f => normName(f.name) === normName(r.name));
+  const accent = fi === 1 ? "#eb6834" : "#2a78d6";
+  g.fillStyle = "#f4f4f1"; g.fillRect(0,0,W,H);
+  g.fillStyle = "#ffffff"; g.beginPath(); g.roundRect(48, 48, W-96, H-96, 48); g.fill();
+  // orienteringsskärm i hörnet
+  g.fillStyle = "#ffffff"; g.fillRect(W-208, 88, 100, 100);
+  g.fillStyle = "#e8590c"; g.beginPath(); g.moveTo(W-108, 88); g.lineTo(W-108, 188); g.lineTo(W-208, 188); g.fill();
+  g.strokeStyle = "#e4e4df"; g.lineWidth = 3; g.strokeRect(W-208, 88, 100, 100);
+  const logo = await loadImg(store.get("logo", null));
+  if(logo){ const s = 110 / Math.max(logo.width, logo.height); g.drawImage(logo, W-360, 84, logo.width*s, logo.height*s); }
+  // avatar
+  const av = await loadImg(S.avatars[normName(r.name)]);
+  const cx = 230, cy = 290, R = 130;
+  g.save(); g.beginPath(); g.arc(cx, cy, R, 0, Math.PI*2); g.clip();
+  if(av){ g.drawImage(av, cx-R, cy-R, R*2, R*2); } else {
+    g.fillStyle = accent; g.fillRect(cx-R, cy-R, R*2, R*2);
+    g.fillStyle = "#fff"; g.font = font(700, 110); g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillText(r.name.split(/\s+/).map(w=>w[0]).slice(0,2).join("").toUpperCase(), cx, cy+6);
+  }
+  g.restore();
+  g.textAlign = "left"; g.textBaseline = "alphabetic";
+  g.fillStyle = "#16181c"; g.font = font(700, 64); g.fillText(r.name, 120, 510);
+  g.fillStyle = "#6b6f76"; g.font = font(500, 38);
+  g.fillText(`${r.cls} · ${S.comp ? S.comp.name : ""}`.slice(0, 44), 120, 568);
+  g.fillText(S.comp ? S.comp.date : "", 120, 618);
+  // placering och tid
+  const place = parseInt(r.place,10);
+  const total = A ? A.snap[A.ctrls.length-1].length : null;
+  g.fillStyle = place === 1 ? "#b8860b" : accent; g.font = font(800, 220);
+  g.fillText(place > 0 ? place + ":a" : "–", 110, 850);
+  g.fillStyle = "#6b6f76"; g.font = font(500, 40);
+  if(total) g.fillText(`av ${total} i mål`, 120, 910);
+  g.textAlign = "right"; g.fillStyle = "#16181c"; g.font = font(700, 96); g.fillText(fmt(r.result), W-120, 790);
+  g.fillStyle = "#6b6f76"; g.font = font(500, 44); g.fillText(r.plus > 0 ? fmtPlus(r.plus) + " efter vinnaren" : "Vinnare!", W-120, 850);
+  // placering vid varje kontroll
+  if(A){
+    const me = A.rs.findIndex(x => normName(x.name) === normName(r.name));
+    const pts = me >= 0 ? A.ptsOf(me) : [];
+    const ps = pts.map(p => p ? p.p : null);
+    if(ps.filter(v=>v!=null).length >= 2){
+      const L = 150, Rr = W-150, T = 1060, B = 1150, maxP = Math.max(3, ...ps.filter(v=>v!=null));
+      const x = i => L + i*(Rr-L)/Math.max(1, ps.length-1), y = v => T + (v-1)/(Math.max(1,maxP-1))*(B-T);
+      g.textAlign = "left"; g.fillStyle = "#6b6f76"; g.font = font(600, 30); g.fillText("Placering under loppet", L-30, T-70);
+      g.strokeStyle = accent; g.lineWidth = 8; g.lineJoin = "round"; g.lineCap = "round"; g.beginPath();
+      let pen = false; ps.forEach((v,i) => { if(v == null) return; pen ? g.lineTo(x(i), y(v)) : g.moveTo(x(i), y(v)); pen = true; }); g.stroke();
+      ps.forEach((v,i) => { if(v == null) return; g.fillStyle = "#fff"; g.beginPath(); g.arc(x(i), y(v), 16, 0, 7); g.fill();
+        g.fillStyle = accent; g.beginPath(); g.arc(x(i), y(v), 11, 0, 7); g.fill();
+        g.fillStyle = "#16181c"; g.font = font(700, 30); g.textAlign = "center"; g.fillText(String(v), x(i), y(v) - 28);
+        g.fillStyle = "#6b6f76"; g.font = font(500, 24); g.fillText(A.ctrls[i].name.slice(0,9), x(i), B + 46); });
+    }
+  }
+  g.textAlign = "center"; g.fillStyle = "#9aa0a8"; g.font = font(600, 28); g.fillText("Kjellberger LiveOL", W/2, H-76);
+  const blob = await new Promise(res => c.toBlob(res, "image/png"));
+  const first = r.name.split(" ")[0];
+  const text = place > 0 ? `${first} blev ${place}:a i ${r.cls}${S.comp ? " på " + S.comp.name : ""}! ${fmt(r.result)}${r.plus > 0 ? " (" + fmtPlus(r.plus) + ")" : ""}` : `${first} i mål på ${fmt(r.result)}`;
+  const file = new File([blob], `${first}-${(S.comp?.date)||"resultat"}.png`, {type:"image/png"});
+  try{
+    if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], text}); return; }
+  }catch(e){ if(e && e.name === "AbortError") return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = file.name; a.click();
+  toast("Bilden sparades", text);
+}
+
+/* ================== Historik ================== */
+S.hist = store.get("hist", {});    // "compId|klass" -> {starters}
+S.histKid = "all";
+function historyRows(){
+  const rows = [];
+  for(const c of (S.compList || [])){
+    const e = S.entries[c.id]; if(!e || !e.rows) continue;
+    for(const x of e.rows){
+      const fav = S.favs.find(f => normName(f.name) === normName(x.name)); if(!fav) continue;
+      const res = num(x.result), plus = num(x.timeplus);
+      const ok = +x.status === 0 && res > 0;
+      if(!ok && ![1,2,3,4,5].includes(+x.status)) continue;       // ej genomförd än
+      const winner = ok && plus != null ? res - plus : null;
+      rows.push({comp:c, name:fav.name, cls:x.class, club: x.club && !sameClub(fav.club, x.club) ? x.club : null, status:+x.status, place:parseInt(x.place,10) || null,
+        result: ok ? res : null, plus: ok ? plus : null, pct: winner ? plus / winner * 100 : null});
+    }
+  }
+  return rows.sort((a,b) => a.comp.date.localeCompare(b.comp.date) || a.comp.id - b.comp.id);
+}
+async function fillStarters(rows){
+  const need = rows.filter(r => r.result && S.hist[r.comp.id+"|"+r.cls] == null);
+  if(!need.length) return;
+  const queue = [...need];
+  const worker = async () => { while(queue.length){ const r = queue.shift();
+    try{ const d = await api({method:"getclassresults", comp:r.comp.id, class:r.cls, unformattedTimes:"true"});
+      S.hist[r.comp.id+"|"+r.cls] = {starters: (d.results||[]).filter(x => +x.status === 0 && num(x.result) > 0).length};
+    }catch{} } };
+  await Promise.all([worker(), worker(), worker(), worker()]);
+  store.set("hist", S.hist);
+  if(S.tab === "history") renderHistory();
+}
+function renderHistory(){
+  if(!S.compList){
+    $view.innerHTML = `<div class="spinner"></div>`;
+    api({method:"getcompetitions"}).then(d => { S.compList = d.competitions || []; if(S.tab === "history") renderHistory(); scanCompetitions(); })
+      .catch(e => { $view.innerHTML = `<p class="note">Kunde inte hämta tävlingar: ${esc(e.message)}</p>`; });
+    return;
+  }
+  if(!S.scan.running) scanCompetitions();
+  const all = historyRows();
+  const rows = S.histKid === "all" ? all : all.filter(r => r.name === S.histKid);
+  const seg = `<div class="seg">${[["all","Båda"], ...S.favs.map(f => [f.name, f.name.split(" ")[0]])]
+    .map(([v,l]) => `<button data-act="histkid" data-v="${esc(v)}" class="${S.histKid===v?"on":""}">${esc(l)}</button>`).join("")}</div>`;
+  const sc = S.scan;
+  const progress = sc.running ? `<p class="note">Hämtar säsongens tävlingar… ${sc.done} av ${sc.total}</p><div class="scan-bar"><i style="width:${Math.round(sc.done/Math.max(1,sc.total)*100)}%"></i></div>` : "";
+  if(!rows.length){
+    $view.innerHTML = seg + progress + (sc.running ? "" : `<div class="empty"><h2>Inga resultat än</h2><p>Här samlas resultaten från säsongens tävlingar på LiveResults.</p></div>`);
+    return;
+  }
+  // nyckeltal
+  const done = rows.filter(r => r.result);
+  const pcts = done.map(r => r.pct).filter(v => v != null);
+  const tiles = [
+    ["Tävlingar", rows.length],
+    ["Pallplatser", done.filter(r => r.place && r.place <= 3).length],
+    ["Bästa placering", done.filter(r=>r.place).length ? Math.min(...done.filter(r=>r.place).map(r => r.place)) + ":a" : "–"],
+    ["Snitt efter vinnaren", pcts.length ? "+" + Math.round(pcts.reduce((a,b)=>a+b,0)/pcts.length) + " %" : "–"],
+  ];
+  const tilesHtml = `<div class="tiles">${tiles.map(([l,v]) => `<div class="tile"><div class="tile-l">${l}</div><div class="tile-v tnum">${v}</div></div>`).join("")}</div>`;
+  // trend: % efter vinnaren per tävling (jämförbart mellan klasser och syskon)
+  const kids = S.histKid === "all" ? S.favs : S.favs.filter(f => f.name === S.histKid);
+  const events = [...new Map(done.map(r => [r.comp.id, r.comp])).values()];
+  const xs = events.map(c => c.date.slice(8,10).replace(/^0/,"") + "/" + c.date.slice(5,7).replace(/^0/,""));
+  const series = kids.map(f => { const fi = S.favs.indexOf(f);
+    return {name:f.name, short:f.name.split(" ")[0], fav:true, color: fi === 1 ? "var(--s-fav2)" : "var(--s-fav1)",
+      values: events.map(c => { const x = done.find(r => r.comp.id === c.id && r.name === f.name); return x && x.pct != null ? x.pct : null; })}; })
+    .filter(s => s.values.some(v => v != null));
+  const chart = events.length >= 2 && series.length ? foldSec("h_pct", "Trend: procent efter vinnaren",
+    `<div class="legend">${series.map(s => `<span><i class="lk" style="background:${s.color}"></i>${esc(s.short)}</span>`).join("")}</div>`
+    + lineChart({xs, series, invert:true, connect:true, fmtY: v => v === 0 ? "0 %" : "+" + Math.round(v) + " %", fmtTip: v => "+" + v.toFixed(1) + " %", zero:true, pctSteps:true})
+    + `<p class="note" style="margin:2px 0 0">Procent efter vinnaren i klassen – går att jämföra mellan olika klasser och banlängder. Uppåt = bättre.</p>`) : "";
+  // lista
+  const list = [...rows].reverse().map(r => {
+    const st = S.hist[r.comp.id+"|"+r.cls]?.starters;
+    const res = r.result ? `<div class="r-time tnum" style="font-size:16px">${fmt(r.result)}</div><div class="r-plus tnum">${r.plus > 0 ? fmtPlus(r.plus) : "Vinnare"}</div>`
+                         : `<span class="chip bad">${STATUS[r.status]}</span>`;
+    return `<button class="list-item" data-act="pickcomp" data-id="${r.comp.id}">
+      <span class="avatar-btn">${avatar(r.name, 40)}${r.place ? `<span class="place pl tnum ${r.place===1?"gold":""}">${r.place}</span>` : ""}</span>
+      <div class="grow"><div class="t">${esc(r.comp.name)}</div><div class="s">${esc(r.comp.date)} · ${esc(r.name.split(" ")[0])} · ${esc(r.cls)}${r.club ? " · för " + esc(r.club) : ""}${r.place && st ? ` · ${r.place} av ${st}` : ""}</div></div>
+      <div style="text-align:right">${res}</div></button>`;
+  }).join("");
+  $view.innerHTML = seg + progress + tilesHtml + chart + foldSec("h_list", "Alla lopp", `<div class="card">${list}</div>`);
+  fillStarters(rows);
+}
+
+/* ================== Render ================== */
+const $view = document.getElementById("view");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const starSvg = on => `<svg width="22" height="22" viewBox="0 0 24 24" fill="${on?"currentColor":"none"}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg>`;
+
+function renderHeader(){
+  document.getElementById("hTitle").textContent = S.comp ? S.comp.name : "Kjellberger LiveOL";
+  const dot = document.getElementById("liveDot"), st = document.getElementById("hStatus");
+  if(!S.comp){ dot.className = "dot"; st.textContent = "Välj en tävling"; return; }
+  if(S.error){ dot.className = "dot err"; st.textContent = S.error; return; }
+  dot.className = "dot" + (pollTimer ? " live" : "");
+  const ago = S.lastOk ? Math.round((Date.now()-S.lastOk)/1000) : null;
+  st.textContent = `${S.comp.date} · ${S.comp.organizer||""}` + (ago != null ? ` · uppd. ${ago < 5 ? "nyss" : ago + " s sedan"}` : "");
+}
+
+function render(){
+  CHARTS.clear();
+  document.querySelectorAll("nav.tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === S.tab));
+  ({live:renderLive, browse:renderBrowse, comps:renderComps, history:renderHistory, follow:renderFollow})[S.tab]();
+  renderHeader();
+}
+
+function placeBadge(r){
+  const p = parseInt(r.place,10);
+  if(phase(r) === "done" && p > 0) return `<span class="place tnum ${p===1?"gold":""}">${p}</span>`;
+  return "";
+}
+function statusChip(r){
+  const ph = phase(r);
+  if(ph === "done") return `<span class="chip ok">I MÅL</span>`;
+  if(ph === "run") return `<span class="chip run">I TERRÄNGLÅDAN</span>`;
+  if(ph === "out") return `<span class="chip bad">${esc(STATUS[r.status]||"–")}</span>`;
+  return `<span class="chip wait">Start ${fmtClock(r.start) || "–"}</span>`;
+}
+function lastPlace(r, sp){
+  const A = classAnalysis(r.cls); if(!A) return null;
+  const i = r.splits.indexOf(sp); return i >= 0 ? A.placeOf(i, sp.time) || null : null;
+}
+function runnerCard(r){
+  const k = keyOf(r.name, r.club), ph = phase(r), open = S.expanded.has(k);
+  let right = "";
+  if(ph === "done") right = `<div class="r-time tnum">${fmt(r.result)}</div><div class="r-plus tnum">${fmtPlus(r.plus)}</div>`;
+  else if(ph === "run") right = `<div class="r-time tnum" data-run="${r.start}">${fmt(nowCompCs()-r.start)}</div><div class="r-plus">löptid</div>`;
+  const last = [...r.splits].reverse().find(s=>s.time);
+  const done = r.splits.filter(s=>s.time).length;
+  let extra = "";
+  if(ph === "run"){
+    const pct = r.splits.length ? Math.round(done / (r.splits.length+1) * 100) : (r.progress ?? 0);
+    extra += `<div class="progress"><i style="width:${Math.max(4,pct)}%"></i></div>`;
+    extra += last ? `<div class="last">Senast: <b>${esc(last.name)}</b> ${fmt(last.time)} · plats ${esc(lastPlace(r, last) || last.place || "–")} <span class="tnum">${fmtPlus(last.plus)}</span></div>`
+                  : `<div class="last">${r.splits.length ? "Ingen radiokontroll passerad än" : "Inga radiokontroller i klassen"}</div>`;
+    if(isFav(r.name, r.club)) extra += predictHtml(r);
+  }
+  if(ph === "wait" && r.start && isFav(r.name, r.club)) right = `<div class="r-time tnum" data-cd="${r.start}" style="font-size:15px">${countdownText(r.start)}</div>`;
+  let splitsHtml = "";
+  if(open){
+    splitsHtml = `<div class="splits">${r.hasSplits ? analysisHtml(r) : `<div class="note">Hämtar mellantider…</div>`}
+      ${r.start ? `<div class="note">Starttid ${fmtClock(r.start)}</div>` : ""}</div>
+      <div class="row-actions">
+        ${ph === "done" && isFav(r.name, r.club) ? `<button class="btn small primary" data-act="share" data-key="${esc(k)}">Dela resultat</button>` : ""}
+        <button class="btn small" data-act="openclass" data-cls="${esc(r.cls)}">Visa klassen</button>
+        <button class="btn small" data-act="fav" data-name="${esc(r.name)}" data-club="${esc(r.club)}">${isFav(r.name,r.club) ? "Ta bort favorit" : "Gör till favorit"}</button>
+      </div>`;
+  }
+  return `<div class="card"><button class="runner" data-act="toggle" data-key="${esc(k)}">
+    <div class="r-top">${isFav(r.name,r.club) ? `<span class="avatar-btn">${avatar(r.name,48)}${placeBadge(r).replace('class="place','class="place pl')}</span>` : placeBadge(r)}<div style="min-width:0"><div class="r-name">${esc(r.name)}</div>
+      <div class="r-meta">${esc(r.cls)} · ${esc(r.club)}</div><div style="margin-top:6px">${statusChip(r)}</div></div>
+      <div class="r-right">${right}</div></div>${extra}</button>${splitsHtml}</div>`;
+}
+
+function liveSec(id, title, body){
+  const open = S.fold[id] ?? true;
+  return `<details class="fold live-sec" data-fold="${esc(id)}" ${open ? "open" : ""}><summary>${title}</summary>${body}</details>`;
+}
+function renderLive(){
+  if(!S.comp){
+    $view.innerHTML = `<div class="empty"><h2>Ingen tävling vald</h2><p>Välj en tävling för att börja följa löpare live.</p><button class="btn primary" data-act="tab" data-tab="comps">Välj tävling</button></div>`;
+    return;
+  }
+  if(!S.clubs.length && !S.favs.length){
+    $view.innerHTML = `<div class="empty"><h2>Du följer ingen ännu</h2><p>Lägg till din klubb, eller stjärnmärk löpare under Klasser.</p><button class="btn primary" data-act="tab" data-tab="follow">Följ en klubb</button></div>`;
+    return;
+  }
+  const rs = [...S.runners.values()];
+  if(!rs.length && !S.favs.length){
+    $view.innerHTML = S.lastOk ? `<div class="empty"><h2>Inga löpare hittades</h2><p>Ingen från ${esc([...S.clubs].join(", ")||"dina favoriter")} verkar vara anmäld i den här tävlingen. Kontrollera att klubbnamnet stavas exakt som i LiveResults.</p><button class="btn" data-act="tab" data-tab="browse">Bläddra i klasser</button></div>` : `<div class="spinner"></div>`;
+    return;
+  }
+  const favCards = S.favs.map(f => {
+    const r = rs.find(x => normName(x.name) === normName(f.name) && sameClub(f.club, x.club));
+    if(r) return runnerCard(r);
+    return `<div class="card"><div class="runner"><div class="r-top">${avatar(f.name,46)}<div><div class="r-name">${esc(f.name)}</div><div class="r-meta">${esc(f.club)}</div>
+      <div style="margin-top:6px"><span class="chip wait">${S.lastScan || S.lastOk ? "Ej anmäld i tävlingen" : "Letar…"}</span></div></div></div></div></div>`;
+  }).join("");
+  const others = rs.filter(r => !isFav(r.name, r.club));
+  const groups = {run:[], done:[], wait:[], out:[]};
+  others.forEach(r => groups[phase(r)].push(r));
+  groups.run.sort((a,b)=> (b.splits.filter(s=>s.time).length - a.splits.filter(s=>s.time).length) || (a.start-b.start));
+  groups.done.sort((a,b)=> a.cls.localeCompare(b.cls,"sv") || (parseInt(a.place)||999)-(parseInt(b.place)||999));
+  groups.wait.sort((a,b)=> (a.start||9e9)-(b.start||9e9));
+  const favFirst = arr => arr.sort((a,b)=> isFav(b.name,b.club)-isFav(a.name,a.club));
+  const sec = (title, arr) => arr.length ? liveSec("l_"+title, `${title} (${arr.length})`, favFirst(arr).map(runnerCard).join("")) : "";
+  $view.innerHTML = (S.favs.length ? liveSec("l_mina", "Mina löpare", favCards) : "") + sec("I terränglådan", groups.run) + sec("I mål", groups.done) + sec("Ej startat", groups.wait) + sec("Ej godkänd / ej start", groups.out) +
+    `<p class="note">Tryck på en löpare för mellantider. Uppdateras var 15:e sekund.</p>`;
+}
+
+async function renderBrowse(){
+  if(!S.comp){ $view.innerHTML = `<div class="empty"><h2>Ingen tävling vald</h2><button class="btn primary" data-act="tab" data-tab="comps">Välj tävling</button></div>`; return; }
+  if(S.browseClass){
+    const d = S.classData.get(S.browseClass);
+    const back = `<button class="back" data-act="classback">‹ Alla klasser</button><div class="section-title" style="margin-top:4px">${esc(S.browseClass)}</div>`;
+    if(!d){ $view.innerHTML = back + `<div class="spinner"></div>`; refreshClass(S.browseClass).then(()=>S.tab==="browse"&&render()).catch(e=>{$view.innerHTML = back + `<p class="note">Fel: ${esc(e.message)}</p>`}); return; }
+    const rs = d.results.map(r => normalizeRunner(r, S.browseClass, d.splitcontrols));
+    $view.innerHTML = back + `<div class="card">` + rs.map(r => {
+      const ph = phase(r);
+      const res = ph === "done" ? `${fmt(r.result)} <span class="r-plus">${fmtPlus(r.plus)}</span>` : ph === "run" ? `<span class="chip run">I TERRÄNGLÅDAN</span>` : ph === "out" ? `<span class="chip bad">${STATUS[r.status]}</span>` : `<span class="r-plus">${fmtClock(r.start)}</span>`;
+      const fav = isFav(r.name, r.club);
+      return `<div class="list-item"><span class="place tnum ${ph==="done"?"":"none"}" style="min-width:28px;height:28px;font-size:13px">${ph==="done" ? esc(r.place) : "–"}</span>
+        <div class="grow"><div class="t">${esc(r.name)}</div><button class="s" style="text-align:left" data-act="followclub" data-club="${esc(r.club)}">${esc(r.club)}${isClubFollowed(r.club)?" · följs":""}</button></div>
+        <div class="tnum" style="text-align:right">${res}</div>
+        <button class="star ${fav?"on":""}" aria-label="Favorit" data-act="fav" data-name="${esc(r.name)}" data-club="${esc(r.club)}">${starSvg(fav)}</button></div>`;
+    }).join("") + `</div><p class="note">★ = följ löparen. Tryck på ett klubbnamn för att följa hela klubben.</p>`;
+    return;
+  }
+  if(!S.classList){
+    $view.innerHTML = `<div class="spinner"></div>`;
+    try{ const d = await api({method:"getclasses", comp:S.comp.id}); S.classList = (d.classes||[]).map(c=>c.className); }
+    catch(e){ $view.innerHTML = `<p class="note">Kunde inte hämta klasser: ${esc(e.message)}</p>`; return; }
+    if(S.tab !== "browse") return;
+  }
+  $view.innerHTML = `<input class="search" id="clsSearch" placeholder="Sök klass…" autocomplete="off" value="${esc(S.clsQuery||"")}"><div class="card" style="margin-top:10px" id="clsList"></div>`;
+  const draw = () => {
+    const q = (S.clsQuery||"").toLowerCase();
+    const list = S.classList.filter(c => c.toLowerCase().includes(q));
+    document.getElementById("clsList").innerHTML = list.length ? list.map(c => `<button class="list-item" data-act="openclass" data-cls="${esc(c)}"><div class="grow t">${esc(c)}</div>${S.classesOfInterest.has(c)?`<span class="chip run">följs</span>`:""}<span class="chev">›</span></button>`).join("") : `<div class="list-item s">Inga klasser</div>`;
+  };
+  draw();
+  document.getElementById("clsSearch").oninput = e => { S.clsQuery = e.target.value; draw(); };
+}
+
+async function renderComps(){
+  if(!S.compList){
+    $view.innerHTML = `<div class="spinner"></div>`;
+    try{ const d = await api({method:"getcompetitions"}); S.compList = d.competitions || []; }
+    catch(e){ $view.innerHTML = `<div class="empty"><h2>Kunde inte hämta tävlingar</h2><p>${esc(e.message)}</p><button class="btn" data-act="reloadcomps">Försök igen</button></div>`; return; }
+    if(S.tab !== "comps") return;
+  }
+  $view.innerHTML = `<div id="compList"></div>`;
+  drawComps();
+  scanCompetitions();
+}
+function drawComps(){
+  const box = document.getElementById("compList"); if(!box || !S.compList) return;
+  const today = todayStr();
+  const who = S.favs.map(f=>f.name.split(" ")[0]).join(" & ") || "dina löpare";
+  const mine = S.compList.filter(c => S.entries[c.id]?.names?.length);
+  const item = c => { const names = S.entries[c.id].names;
+    return `<button class="list-item" data-act="pickcomp" data-id="${c.id}">
+      <div class="avatars">${names.map(n=>avatar(n,34)).join("")}</div>
+      <div class="grow"><div class="t">${esc(c.name)}</div><div class="s">${esc(c.date)} · ${esc(names.map(n=>n.split(" ")[0]).join(" & "))}${c.multidaystage ? " · etapp "+c.multidaystage : ""}</div></div>
+      ${S.comp && S.comp.id===c.id ? `<span class="chip ok">Vald</span>` : `<span class="chev">›</span>`}</button>`; };
+  const group = (title, arr) => arr.length ? `<div class="section-title">${title}</div><div class="card">${arr.map(item).join("")}</div>` : "";
+  const todayL = mine.filter(c=>c.date===today);
+  const upcoming = mine.filter(c=>c.date>today).sort((a,b)=>a.date.localeCompare(b.date));
+  const past = mine.filter(c=>c.date<today).sort((a,b)=>b.date.localeCompare(a.date));
+  const sc = S.scan;
+  const progress = sc.running ? `<p class="note">Letar efter ${esc(who)} i tävlingarna… ${sc.done} av ${sc.total}</p><div class="scan-bar"><i style="width:${Math.round(sc.done/Math.max(1,sc.total)*100)}%"></i></div>` : "";
+  box.innerHTML = progress + (mine.length ? group("Idag", todayL) + group("Kommande", upcoming) + group("Tidigare", past)
+    : sc.running ? "" : `<div class="empty"><h2>Inga tävlingar hittade</h2><p>${esc(who)} finns inte i någon tävling på LiveResults de senaste ${PAST_DAYS} dagarna eller framåt. Anmälda löpare syns oftast först när arrangören lagt upp startlistan, ofta samma dag.</p><button class="btn" data-act="rescan">Sök igen</button></div>`)
+    + (mine.length && !sc.running ? `<p class="note" style="text-align:center"><button class="back" data-act="rescan">Sök igen</button></p>` : "");
+}
+
+function renderFollow(){
+  const notifState = !("Notification" in window) ? "Stöds ej i denna webbläsare – öppna appen från hemskärmen" :
+    Notification.permission === "granted" ? "Tillåtna" : Notification.permission === "denied" ? "Blockerade i iPhones inställningar" : "Inte aktiverade än";
+  $view.innerHTML = `
+    <div class="section-title">Följ hela klubbar (valfritt)</div>
+    <div class="tags" id="clubTags">${S.clubs.map((c,i)=>`<span class="tag">${esc(c)}<button data-act="rmclub" data-i="${i}" aria-label="Ta bort">✕</button></span>`).join("") || `<span class="note">Inga klubbar</span>`}</div>
+    <form class="inline-form" id="clubForm"><input class="search" id="clubIn" placeholder="Klubbnamn, t.ex. OK Ravinen" autocomplete="off" list="clubSug"><button class="btn primary">Lägg till</button></form>
+    <datalist id="clubSug">${clubSuggestions().map(c=>`<option value="${esc(c)}">`).join("")}</datalist>
+    <p class="note">Stavas exakt som i LiveResults. Förslag visas från klasser du har öppnat.</p>
+
+    <div class="section-title">Klubbar barnen tävlar för</div>
+    <div class="tags">${favClubs().map(c => { const alt = S.altClubs.indexOf(c);
+      return `<span class="tag">${esc(c)}${alt >= 0 ? `<button data-act="rmalt" data-i="${alt}" aria-label="Ta bort">✕</button>` : `<span class="note" style="margin:0 8px 0 2px">huvudklubb</span>`}</span>`; }).join("")}</div>
+    <form class="inline-form" id="altForm"><input class="search" id="altIn" placeholder="T.ex. Västergötlands OF" autocomplete="off"><button class="btn primary">Lägg till</button></form>
+    <p class="note">Appen letar efter Noel och Moa under alla dessa namn, t.ex. när de springer för distriktet eller landslaget. Namnet måste stavas som i LiveResults.</p>
+
+    <div class="section-title">Favoriter</div>
+    <div class="card">${S.favs.length ? S.favs.map((f,i)=>`<div class="list-item"><button class="avatar-btn" data-act="setavatar" data-name="${esc(f.name)}" aria-label="Byt bild">${avatar(f.name,48)}<span class="cam">✎</span></button><div class="grow"><div class="t">${esc(f.name)}</div><div class="s">${esc(f.club)}</div></div>
+      <button class="star on" data-act="rmfav" data-i="${i}" aria-label="Ta bort">${starSvg(true)}</button></div>`).join("") : `<div class="list-item s">Stjärnmärk löpare under Klasser. Favoriter sparas mellan tävlingar.</div>`}</div>
+
+    <p class="note">Tryck på bilden för att välja ett foto.</p>
+    <div class="section-title">Klubblogga</div>
+    <div class="card"><div class="list-item"><img class="club-logo" id="logoPrev" alt="" style="display:${store.get("logo",null)?"block":"none"}" src="${store.get("logo","")||""}">
+      <div class="grow"><div class="t">IFK Göteborg Orientering</div><div class="s">Visas i appens sidhuvud</div></div>
+      <button class="btn small" data-act="setlogo">Välj bild</button>${store.get("logo",null)?`<button class="btn small" data-act="rmlogo">Ta bort</button>`:""}</div></div>
+
+    <div class="section-title">Inställningar</div>
+    <div class="card">
+      <label class="switch-row"><div class="grow"><div class="t">Notiser</div><div class="s note" style="margin:0">${notifState}</div></div>
+        <input type="checkbox" class="toggle" id="notifT" ${S.notify && ("Notification" in window) && Notification.permission==="granted" ? "checked":""}></label>
+      <label class="switch-row"><div class="grow"><div class="t">Håll skärmen tänd</div><div class="s note" style="margin:0">Bra när du följer en start</div></div>
+        <input type="checkbox" class="toggle" id="wakeT" ${store.get("wake",false)?"checked":""}></label>
+    </div>
+    <p class="note">Notiser kommer när en följd löpare passerar en radiokontroll eller går i mål, medan appen är öppen. Data från liveresultat.orientering.se.</p>`;
+  document.getElementById("clubForm").onsubmit = e => {
+    e.preventDefault(); const v = document.getElementById("clubIn").value.trim();
+    if(v && !isClubFollowed(v)){ S.clubs.push(v); store.set("clubs", S.clubs); S.lastClubFetch = 0; poll(); }
+    render();
+  };
+  document.getElementById("altForm").onsubmit = e => {
+    e.preventDefault(); const v = document.getElementById("altIn").value.trim();
+    if(v && !favClubs().some(c => c.toLowerCase() === v.toLowerCase())){ S.altClubs.push(v); store.set("altclubs", S.altClubs); S.lastClubFetch = 0; S.lastScan = 0; poll(); }
+    render();
+  };
+  document.getElementById("notifT").onchange = async e => {
+    if(e.target.checked){ const ok = await askNotify(); S.notify = ok; }
+    else S.notify = false;
+    store.set("notify", S.notify); render();
+  };
+  document.getElementById("wakeT").onchange = e => setWake(e.target.checked);
+}
+function clubSuggestions(){
+  const set = new Set();
+  for(const d of S.classData.values()) for(const r of d.results) if(r.club) set.add(r.club);
+  return [...set].sort((a,b)=>a.localeCompare(b,"sv")).slice(0,300);
+}
+
+/* ================== Händelser ================== */
+document.addEventListener("click", e => {
+  const el = e.target.closest("[data-act],[data-tab]");
+  if(!el) return;
+  const act = el.dataset.act || "tab";
+  if(act === "tab"){ S.tab = el.dataset.tab; if(S.tab !== "browse") S.browseClass = null; render(); window.scrollTo(0,0); return; }
+  if(act === "toggle"){ const k = el.dataset.key; S.expanded.has(k) ? S.expanded.delete(k) : S.expanded.add(k); render(); return; }
+  if(act === "openclass"){ e.stopPropagation(); S.tab = "browse"; S.browseClass = el.dataset.cls; render(); window.scrollTo(0,0); return; }
+  if(act === "classback"){ S.browseClass = null; render(); return; }
+  if(act === "fav"){
+    e.stopPropagation();
+    const name = el.dataset.name, club = el.dataset.club;
+    if(isFav(name, club)){ const f = favOf(name, club); S.favs = S.favs.filter(x => x !== f); }
+    else { S.favs.push({name, club}); toast("Följer " + name, "Visas under Live."); }
+    S.entries = {}; store.set("entries2", {});
+    store.set("favs", S.favs); S.lastClubFetch = 0; S.lastScan = 0; render(); poll(); return;
+  }
+  if(act === "rmfav"){ S.favs.splice(+el.dataset.i,1); store.set("favs", S.favs); S.entries = {}; store.set("entries2", {}); S.lastClubFetch = 0; render(); poll(); return; }
+  if(act === "rmclub"){ S.clubs.splice(+el.dataset.i,1); store.set("clubs", S.clubs); S.lastClubFetch = 0; render(); poll(); return; }
+  if(act === "followclub"){
+    e.stopPropagation(); const c = el.dataset.club; if(!c) return;
+    if(isClubFollowed(c)){ if(confirm("Sluta följa "+c+"?")) S.clubs = S.clubs.filter(x=>x.toLowerCase()!==c.toLowerCase()); }
+    else if(confirm("Följ alla löpare från "+c+"?")) S.clubs.push(c);
+    store.set("clubs", S.clubs); S.lastClubFetch = 0; render(); poll(); return;
+  }
+  if(act === "rmalt"){ S.altClubs.splice(+el.dataset.i, 1); store.set("altclubs", S.altClubs); S.lastClubFetch = 0; render(); poll(); return; }
+  if(act === "histkid"){ S.histKid = el.dataset.v; render(); return; }
+  if(act === "share"){ e.stopPropagation(); const r = S.runners.get(el.dataset.key); if(r) shareResult(r); return; }
+  if(act === "cmp"){ e.stopPropagation(); S.cmp[el.dataset.cls] = el.dataset.v; render(); return; }
+  if(act === "setavatar"){
+    const name = el.dataset.name;
+    pickImage({square:true, max:256}).then(url => { if(!url) return; S.avatars[normName(name)] = url; store.set("avatars", S.avatars); render(); });
+    return;
+  }
+  if(act === "setlogo"){
+    pickImage({square:false, max:256, type:"image/png"}).then(url => { if(!url) return; store.set("logo", url); applyLogo(); render(); });
+    return;
+  }
+  if(act === "rmlogo"){ try{ localStorage.removeItem("ollive.logo"); }catch{} applyLogo(); render(); return; }
+  if(act === "rescan"){ S.entries = {}; store.set("entries2", {}); renderComps(); return; }
+  if(act === "reloadcomps"){ S.compList = null; render(); return; }
+  if(act === "pickcomp"){
+    const c = S.compList.find(x => String(x.id) === el.dataset.id);
+    S.comp = {id:c.id, name:c.name, organizer:c.organizer, date:c.date, timediff:c.timediff||0};
+    store.set("comp", S.comp); resetData(); S.classList = null; S.browseClass = null;
+    S.tab = "live"; render(); startPolling(); return;
+  }
+});
+
+// Löptidsklockor tickar varje sekund utan att rita om allt
+tickTimer = setInterval(() => {
+  const now = nowCompCs();
+  document.querySelectorAll("[data-run]").forEach(el => { el.textContent = fmt(now - +el.dataset.run); });
+  document.querySelectorAll("[data-cd]").forEach(el => { el.textContent = countdownText(+el.dataset.cd); });
+  document.querySelectorAll("[data-eta]").forEach(el => { el.textContent = etaText(+el.dataset.eta); });
+  checkStartAlerts();
+  if(S.tab === "live") renderHeader();
+}, 1000);
+
+document.addEventListener("visibilitychange", () => {
+  if(document.hidden) stopPolling();
+  else { startPolling(); if(store.get("wake",false)) setWake(true); }
+});
+
+// Lägg till nya standardnamn även om listan redan sparats i telefonen
+if(!store.get("altmig1", false)){
+  if(!S.altClubs.some(c => c.toLowerCase() === "göteborgs of")) S.altClubs.splice(1, 0, "Göteborgs OF");
+  store.set("altclubs", S.altClubs); store.set("altmig1", true);
+}
+applyLogo();
+if(!S.comp) S.tab = "comps";
+if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+render();
+startPolling();
+if(store.get("wake",false)) setWake(true);
+</script>
+</body>
+</html>
