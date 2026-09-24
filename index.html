@@ -200,6 +200,7 @@ nav.tabs button{font-size:10.5px}
 header .hrow > div{flex:1}
 header h1{display:inline-block;max-width:calc(100% - 40px);vertical-align:middle}
 .close-comp{float:right;width:30px;height:30px;border-radius:50%;background:var(--line);color:var(--muted);font-size:14px;margin-top:2px}
+.err-card{border-color:var(--bad)}
 </style>
 </head>
 <body>
@@ -285,13 +286,36 @@ function clubVariants(club){
 const isClubFollowed = club => S.clubs.some(c => c.toLowerCase() === (club||"").toLowerCase());
 
 /* ================== API ================== */
-async function api(params){
+async function api(params, timeoutMs = 25000){
   const url = API + "?" + new URLSearchParams(params).toString();
-  const res = await fetch(url, {cache:"no-store"});
+  const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  let res;
+  try{ res = await fetch(url, {cache:"no-store", signal: ctrl.signal}); }
+  catch(e){ throw new Error(e.name === "AbortError" ? "LiveResults svarar inte (timeout)" : "Ingen kontakt med LiveResults (" + e.message + ")"); }
+  finally{ clearTimeout(timer); }
   if(!res.ok) throw new Error("HTTP " + res.status);
   const text = await res.text();
-  try { return JSON.parse(text); }
-  catch { return JSON.parse(text.replace(/[\u0000-\u001f]/g, " ")); } // skydd mot kontrolltecken i namn
+  try { return JSON.parse(text); } catch {}
+  try { return JSON.parse(repairJSON(text)); }
+  catch(e){ throw new Error("Oväntat svar från LiveResults (" + e.message + ")"); }
+}
+// LiveResults bygger sin JSON för hand – namn med citattecken eller radbrytningar kan göra den ogiltig. Laga det vanligaste.
+function repairJSON(t){
+  let out = "", inStr = false;
+  for(let i = 0; i < t.length; i++){
+    const c = t[i];
+    if(!inStr){ if(c === '"') inStr = true; out += c; continue; }
+    if(c === "\\"){ const n = t[i+1]; if(n !== undefined && '"\\/bfnrtu'.includes(n)){ out += c + n; i++; } else out += "\\\\"; continue; }
+    if(c === '"'){
+      let j = i + 1; while(j < t.length && (t[j] === " " || t[j] === "\n" || t[j] === "\r" || t[j] === "\t")) j++;
+      const n = t[j];
+      if(j >= t.length || n === "," || n === ":" || n === "}" || n === "]"){ inStr = false; out += c; }
+      else out += '\\"';
+      continue;
+    }
+    out += c < " " ? " " : c;
+  }
+  return out;
 }
 
 /* ================== Tid ================== */
@@ -384,22 +408,25 @@ function applyLogo(){
 const PAST_DAYS = 60;          // minst så långt bakåt vi letar (annars från årets början)
 const ENTRY_TTL = 10*60000;    // dagens/kommande tävlingar kontrolleras om efter 10 min
 S.entries = store.get("entries2", {});   // compId -> {t, names:[...], rows:[klubbresultat för mina löpare]}
-S.scan = {running:false, done:0, total:0};
+S.scan = {running:false, done:0, total:0, futureDone:false};
 async function scanCompetitions(){
   if(S.scan.running || !S.compList) return;
   const today = todayStr(), back = new Date(Date.parse(today) - PAST_DAYS*864e5).toISOString().slice(0,10);
   const from = [today.slice(0,4) + "-01-01", back].sort()[0];   // säsongen = från 1 januari
   const clubs = favClubs();
   const missing = c => { const e = S.entries[c.id]; return clubs.filter(cl => !(e && e.clubs && e.clubs.includes(cl))); };
-  const todo = S.compList.filter(c => c.date >= from && c.date < "2099").filter(c => {
+  const todo = S.compList.filter(c => c.date >= from && c.date < "2099" && !/\btest/i.test(c.name)).filter(c => {
     const e = S.entries[c.id]; if(!e || missing(c).length) return true;
     return c.date >= today && Date.now() - e.t > ENTRY_TTL;   // avslutade tävlingar ändras inte
   }).sort((a,b) => (b.date >= today) - (a.date >= today) || (a.date >= today ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date)));
-  if(!todo.length || !clubs.length) return;
-  S.scan = {running:true, done:0, total:todo.length};
+  if(!todo.length || !clubs.length){ S.scan.futureDone = true; return; }
+  const futureLeft = () => queue.some(c => c.date >= today);
+  S.scan = {running:true, done:0, total:todo.length, futureDone:false};
   const queue = [...todo];
   let lastDraw = 0;
+  const inFlightFuture = new Set();
   const worker = async () => { while(queue.length){ const c = queue.shift();
+    if(c.date >= today) inFlightFuture.add(c.id);
     try{
       const prev = S.entries[c.id];
       const fresh = !prev || (c.date >= today && Date.now() - prev.t > ENTRY_TTL);
@@ -411,14 +438,16 @@ async function scanCompetitions(){
           if(!rows.some(x => normName(x.name) === normName(r.name) && x.class === r.class))
             rows.push({name:r.name, club:r.club, class:r.class, result:r.result, status:r.status, place:r.place, timeplus:r.timeplus}); } }
       }
+      inFlightFuture.delete(c.id);
       S.entries[c.id] = {t: fresh ? Date.now() : prev.t, names:[...hits], rows, clubs: fresh ? clubs : [...new Set([...(prev.clubs||[]), ...ask])]};
-    }catch{}
+    }catch{ inFlightFuture.delete(c.id); }
     S.scan.done++;
+    if(!S.scan.futureDone && !futureLeft() && !inFlightFuture.size){ S.scan.futureDone = true; store.set("entries2", S.entries); lastDraw = 0; }
     if(S.scan.done % 50 === 0) store.set("entries2", S.entries);
     if(Date.now() - lastDraw > 400){ lastDraw = Date.now(); if(S.tab === "comps") drawComps(); if(S.tab === "history") renderHistory(); if(S.tab === "live" && !S.comp) render(); }
   } };
-  await Promise.all(Array.from({length:6}, worker));
-  S.scan.running = false;
+  await Promise.all(Array.from({length:8}, worker));
+  S.scan.running = false; S.scan.futureDone = true;
   store.set("entries2", S.entries);
   if(S.tab === "comps") drawComps();
   if(S.tab === "history") renderHistory();
@@ -875,9 +904,7 @@ async function fillStarters(rows){
 }
 function renderHistory(){
   if(!S.compList){
-    $view.innerHTML = `<div class="spinner"></div>`;
-    api({method:"getcompetitions"}).then(d => { S.compList = d.competitions || []; if(S.tab === "history") renderHistory(); scanCompetitions(); })
-      .catch(e => { $view.innerHTML = `<p class="note">Kunde inte hämta tävlingar: ${esc(e.message)}</p>`; });
+    ensureComps(); $view.innerHTML = S.compErr ? compErrHtml() : `<div class="spinner"></div>`;
     return;
   }
   if(!S.scan.running) scanCompetitions();
@@ -928,11 +955,15 @@ function renderHistory(){
 }
 
 /* ================== Hemvy: barnen mellan tävlingar + dagens tävlingar ================== */
-function ensureComps(){
-  if(S.compList || S.loadingComps) return;
-  S.loadingComps = true;
-  api({method:"getcompetitions"}).then(d => { S.compList = d.competitions || []; scanCompetitions(); loadFeatured(); })
-    .catch(() => {}).finally(() => { S.loadingComps = false; if(["live","comps","history"].includes(S.tab)) render(); });
+function ensureComps(force){
+  if(S.compList || S.loadingComps || (S.compErr && !force)) return;
+  S.loadingComps = true; S.compErr = null;
+  api({method:"getcompetitions"}, 40000).then(d => { S.compList = d.competitions || []; scanCompetitions(); loadFeatured(); })
+    .catch(e => { S.compErr = e.message; }).finally(() => { S.loadingComps = false; if(["live","comps","history"].includes(S.tab)) render(); });
+}
+function compErrHtml(){
+  return S.compErr ? `<div class="card err-card"><div class="runner"><b>Kunde inte hämta tävlingar</b><div class="note" style="margin:4px 0 10px">${esc(S.compErr)}</div>
+    <button class="btn small primary" data-act="retrycomps">Försök igen</button></div></div>` : "";
 }
 function shortDate(iso){
   const m = ["jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov","dec"];
@@ -952,7 +983,7 @@ function idleCard(f){
     <div class="r-meta">${esc(f.club)}</div><div style="margin-top:6px">${chip}</div></div></div>
     <div class="idle-rows">
       ${next ? `<button class="idle-row" data-act="pickcomp" data-id="${next.id}"><span class="idle-l">Nästa</span><span class="idle-v">${esc(next.name)} · ${shortDate(next.date)}</span><span class="chev">›</span></button>`
-             : `<div class="idle-row"><span class="idle-l">Nästa</span><span class="idle-v muted">${S.scan.running || !S.compList ? "Letar…" : "Inte upplagd på LiveResults än"}</span></div>`}
+             : `<div class="idle-row"><span class="idle-l">Nästa</span><span class="idle-v muted">${S.compErr ? "Kunde inte hämta tävlingar" : (!S.compList || (S.scan.running && !S.scan.futureDone)) ? "Letar…" : "Inte upplagd på LiveResults än"}</span></div>`}
       ${lastTxt ? `<button class="idle-row" data-act="tab" data-tab="history"><span class="idle-l">Senast</span><span class="idle-v">${lastTxt}</span><span class="chev">›</span></button>` : ""}
     </div></div></div>`;
 }
@@ -992,8 +1023,8 @@ function featuredHtml(){
 }
 function renderHome(){
   ensureComps();
-  $view.innerHTML = (S.favs.length ? liveSec("l_mina", "Mina löpare", S.favs.map(idleCard).join("")) : "") + featuredHtml()
-    + (!S.featured ? `<div class="spinner"></div>` : "");
+  $view.innerHTML = compErrHtml() + (S.favs.length ? liveSec("l_mina", "Mina löpare", S.favs.map(idleCard).join("")) : "") + featuredHtml()
+    + (!S.featured && !S.compErr ? `<div class="spinner"></div>` : "");
 }
 
 /* ================== Render ================== */
@@ -1140,12 +1171,7 @@ async function renderBrowse(){
 }
 
 async function renderComps(){
-  if(!S.compList){
-    $view.innerHTML = `<div class="spinner"></div>`;
-    try{ const d = await api({method:"getcompetitions"}); S.compList = d.competitions || []; }
-    catch(e){ $view.innerHTML = `<div class="empty"><h2>Kunde inte hämta tävlingar</h2><p>${esc(e.message)}</p><button class="btn" data-act="reloadcomps">Försök igen</button></div>`; return; }
-    if(S.tab !== "comps") return;
-  }
+  if(!S.compList){ ensureComps(); $view.innerHTML = S.compErr ? compErrHtml() : `<div class="spinner"></div>`; return; }
   $view.innerHTML = `<div id="compList"></div>`;
   drawComps();
   scanCompetitions();
@@ -1256,6 +1282,7 @@ document.addEventListener("click", e => {
     store.set("clubs", S.clubs); S.lastClubFetch = 0; render(); poll(); return;
   }
   if(act === "rmalt"){ S.altClubs.splice(+el.dataset.i, 1); store.set("altclubs", S.altClubs); S.lastClubFetch = 0; render(); poll(); return; }
+  if(act === "retrycomps"){ ensureComps(true); render(); return; }
   if(act === "alltoday"){ S.showAllToday = !S.showAllToday; render(); return; }
   if(act === "closecomp"){ S.comp = null; store.set("comp", null); stopPolling(); resetData(); render(); return; }
   if(act === "histkid"){ S.histKid = el.dataset.v; render(); return; }
