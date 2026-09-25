@@ -1,7 +1,7 @@
 {
-  "name": "Kjellberger LiveOL",
-  "short_name": "LiveOL",
-  "description": "Följ orienterare live via LiveResults",
+  "name": "MOLN Live – Moa & Noel på OL",
+  "short_name": "MOLN Live",
+  "description": "Liveresultat för Moa och Noel Kjellberger",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

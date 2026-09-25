@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Kjellberger LiveOL">
+<meta name="apple-mobile-web-app-title" content="MOLN Live">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#16181c" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
@@ -201,6 +201,23 @@ header .hrow > div{flex:1}
 header h1{display:inline-block;max-width:calc(100% - 40px);vertical-align:middle}
 .close-comp{float:right;width:30px;height:30px;border-radius:50%;background:var(--line);color:var(--muted);font-size:14px;margin-top:2px}
 .err-card{border-color:var(--bad)}
+
+.card-logo{object-fit:contain;display:block;margin-left:auto}
+.r-right .card-logo{margin-bottom:4px}
+.place.medal{background:none;font-size:22px;min-width:0;padding:0}
+.place.pl.medal{background:var(--card);border-radius:50%;width:26px;height:26px;min-width:26px;font-size:17px;display:grid;place-items:center;border:2px solid var(--card)}
+.ifk-line{display:flex;align-items:center;gap:5px;color:var(--text)!important}
+.ifk-line .card-logo{margin:0}
+.big-comp{display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:16px 14px;margin-bottom:10px}
+.date-badge{width:58px;flex-shrink:0;border-radius:12px;background:var(--accent);color:#fff;text-align:center;padding:6px 0 7px;line-height:1.05}
+.date-badge b{display:block;font-size:26px}
+.date-badge span{font-size:12px;font-weight:700;letter-spacing:.06em}
+.big-comp .s{font-size:13.5px;color:var(--muted)}
+.big-t{font-size:18px;font-weight:700;line-height:1.25}
+.big-who{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:14px;flex-wrap:wrap}
+.tile-top{display:flex;align-items:center;gap:6px}
+.tile-ic{font-size:18px}
+.sel{font:inherit;font-size:15px;padding:6px 10px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--text)}
 </style>
 </head>
 <body>
@@ -361,6 +378,16 @@ function phase(r){
   if([1,2,3,4,5,11,12].includes(r.status)) return "out";
   if(r.start != null && r.start > 0 && nowCompCs() >= r.start) return "run";
   return "wait";
+}
+
+/* ================== Medaljer & klubblogga på korten ================== */
+const MEDAL = {1:"🥇", 2:"🥈", 3:"🥉"};
+const medal = p => MEDAL[parseInt(p,10)] || "";
+const MAIN_CLUB = () => (S.favs[0] && S.favs[0].club) || "IFK Göteborg Orientering";
+function logoSrc(){ return store.get("logo", null) || "logo.png"; }
+function cardLogo(club, size = 34){
+  if(club && !sameClub(MAIN_CLUB(), club)) return "";            // springer för t.ex. GOF – visa inte IFK-loggan
+  return `<img class="card-logo" src="${logoSrc()}" alt="" style="width:${size}px;height:${size}px" onerror="this.remove()">`;
 }
 
 /* ================== Avatarer & logga ================== */
@@ -664,7 +691,7 @@ function analysisHtml(r){
     const pick = sn.filter((o,k) => k < 3 || mineIdx.has(o.ri));
     return `<tr class="ctrl"><td colspan="4">${esc(c.name)} <span class="cnt">${sn.length} passerat</span></td></tr>` + pick.map(o => {
       const me = A.mine.find(s => s.ri === o.ri), p = A.placeOf(i, o.t);
-      return `<tr class="${me?"me":""}"><td class="p tnum">${p}</td><td class="nm">${me ? key(me.color) : ""}${esc(A.rs[o.ri].name)}</td>
+      return `<tr class="${me?"me":""}"><td class="p tnum">${me && medal(p) ? medal(p) : p}</td><td class="nm">${me ? key(me.color) : ""}${esc(A.rs[o.ri].name)}</td>
       <td class="n tnum">${fmt(o.t)}</td><td class="d tnum">${diffFmt(diffAt({t:o.t, plus:o.t - A.best[i]}, i))}</td></tr>`; }).join("");
   }).join("");
   const table = `<table class="an">${rows}</table><p class="note" style="margin:6px 0 0">Ställningen vid varje kontroll just nu, bland alla som passerat den. ${ref ? "− = före " + esc(ref.short) + ", + = efter." : "+ = efter ledaren vid kontrollen."}</p>`;
@@ -837,7 +864,9 @@ async function shareResult(r){
   const place = parseInt(r.place,10);
   const total = A ? A.snap[A.ctrls.length-1].length : null;
   g.fillStyle = place === 1 ? "#b8860b" : accent; g.font = font(800, 220);
-  g.fillText(place > 0 ? place + ":a" : "–", 110, 850);
+  const placeTxt = place > 0 ? place + ":a" : "–";
+  g.fillText(placeTxt, 110, 850);
+  if(medal(place)){ const pw = g.measureText(placeTxt).width; g.font = font(400, 130); g.fillText(medal(place), 110 + pw + 20, 830); }
   g.fillStyle = "#6b6f76"; g.font = font(500, 40);
   if(total) g.fillText(`av ${total} i mål`, 120, 910);
   g.textAlign = "right"; g.fillStyle = "#16181c"; g.font = font(700, 96); g.fillText(fmt(r.result), W-120, 790);
@@ -922,12 +951,12 @@ function renderHistory(){
   const done = rows.filter(r => r.result);
   const pcts = done.map(r => r.pct).filter(v => v != null);
   const tiles = [
-    ["Tävlingar", rows.length],
-    ["Pallplatser", done.filter(r => r.place && r.place <= 3).length],
-    ["Bästa placering", done.filter(r=>r.place).length ? Math.min(...done.filter(r=>r.place).map(r => r.place)) + ":a" : "–"],
-    ["Snitt efter vinnaren", pcts.length ? "+" + Math.round(pcts.reduce((a,b)=>a+b,0)/pcts.length) + " %" : "–"],
+    ["🧭", "Tävlingar", rows.length],
+    ["🏆", "Pallplatser", done.filter(r => r.place && r.place <= 3).length],
+    ["🥇", "Bästa placering", done.filter(r=>r.place).length ? (() => { const b = Math.min(...done.filter(r=>r.place).map(r => r.place)); return b + ":a"; })() : "–"],
+    ["⏱️", "Snitt efter vinnaren", pcts.length ? "+" + Math.round(pcts.reduce((a,b)=>a+b,0)/pcts.length) + " %" : "–"],
   ];
-  const tilesHtml = `<div class="tiles">${tiles.map(([l,v]) => `<div class="tile"><div class="tile-l">${l}</div><div class="tile-v tnum">${v}</div></div>`).join("")}</div>`;
+  const tilesHtml = `<div class="tiles">${tiles.map(([ic,l,v]) => `<div class="tile"><div class="tile-top"><span class="tile-ic">${ic}</span><span class="tile-l">${l}</span></div><div class="tile-v tnum">${v}</div></div>`).join("")}</div>`;
   // trend: % efter vinnaren per tävling (jämförbart mellan klasser och syskon)
   const kids = S.histKid === "all" ? S.favs : S.favs.filter(f => f.name === S.histKid);
   const events = [...new Map(done.map(r => [r.comp.id, r.comp])).values()];
@@ -946,7 +975,7 @@ function renderHistory(){
     const res = r.result ? `<div class="r-time tnum" style="font-size:16px">${fmt(r.result)}</div><div class="r-plus tnum">${r.plus > 0 ? fmtPlus(r.plus) : "Vinnare"}</div>`
                          : `<span class="chip bad">${STATUS[r.status]}</span>`;
     return `<button class="list-item" data-act="pickcomp" data-id="${r.comp.id}">
-      <span class="avatar-btn">${avatar(r.name, 40)}${r.place ? `<span class="place pl tnum ${r.place===1?"gold":""}">${r.place}</span>` : ""}</span>
+      <span class="avatar-btn">${avatar(r.name, 40)}${r.place ? (medal(r.place) ? `<span class="place pl medal">${medal(r.place)}</span>` : `<span class="place pl tnum">${r.place}</span>`) : ""}</span>
       <div class="grow"><div class="t">${esc(r.comp.name)}</div><div class="s">${esc(r.comp.date)} · ${esc(r.name.split(" ")[0])} · ${esc(r.cls)}${r.club ? " · för " + esc(r.club) : ""}${r.place && st ? ` · ${r.place} av ${st}` : ""}</div></div>
       <div style="text-align:right">${res}</div></button>`;
   }).join("");
@@ -976,11 +1005,11 @@ function idleCard(f){
   const mine = (S.compList || []).filter(c => S.entries[c.id]?.names?.includes(f.name));
   const next = mine.filter(c => c.date >= today).sort((a,b) => a.date.localeCompare(b.date))[0];
   const last = historyRows().filter(r => r.name === f.name && r.comp.date < today).pop();
-  const lastTxt = last ? (last.result ? `${last.place ? last.place + ":a" : "I mål"}${last.place && S.hist[last.comp.id+"|"+last.cls]?.starters ? " av " + S.hist[last.comp.id+"|"+last.cls].starters : ""} · ${esc(last.comp.name)} · ${shortDate(last.comp.date)}`
+  const lastTxt = last ? (last.result ? `${medal(last.place)}${last.place ? " " + last.place + ":a" : "I mål"}${last.place && S.hist[last.comp.id+"|"+last.cls]?.starters ? " av " + S.hist[last.comp.id+"|"+last.cls].starters : ""} · ${esc(last.comp.name)} · ${shortDate(last.comp.date)}`
                                    : `${STATUS[last.status]} · ${esc(last.comp.name)} · ${shortDate(last.comp.date)}`) : "";
   const chip = next && next.date === today ? `<span class="chip run">TÄVLAR IDAG</span>` : `<span class="chip charge">⚡ LADDAR FÖR NÄSTA TÄVLING</span>`;
   return `<div class="card idle"><div class="runner"><div class="r-top">${avatar(f.name,56)}<div style="min-width:0"><div class="r-name">${esc(f.name)}</div>
-    <div class="r-meta">${esc(f.club)}</div><div style="margin-top:6px">${chip}</div></div></div>
+    <div class="r-meta">${esc(f.club)}</div><div style="margin-top:6px">${chip}</div></div><div class="r-right">${cardLogo(f.club, 40)}</div></div>
     <div class="idle-rows">
       ${next ? `<button class="idle-row" data-act="pickcomp" data-id="${next.id}"><span class="idle-l">Nästa</span><span class="idle-v">${esc(next.name)} · ${shortDate(next.date)}</span><span class="chev">›</span></button>`
              : `<div class="idle-row"><span class="idle-l">Nästa</span><span class="idle-v muted">${S.compErr ? "Kunde inte hämta tävlingar" : (!S.compList || (S.scan.running && !S.scan.futureDone)) ? "Letar…" : "Inte upplagd på LiveResults än"}</span></div>`}
@@ -990,40 +1019,72 @@ function idleCard(f){
 
 // Dagens tävlingar: några utvalda (svensk tid), rankade på typ och storlek
 S.featured = null; S.showAllToday = false;
-const FEAT_PLUS = /\b(SM|JSM|USM|VSM)\b|svenska mästerskap|o-ringen|sverigecup|rankning|nationell|\bDM\b|distriktsmästerskap|natt|stafett|jukola|tiomila|25manna|sprint|budapest|ungdomens/i;
+const FEAT_PLUS = /\b(SM|JSM|USM|VSM)\b|svenska mästerskap|o-ringen|sverigecup|rankning|nationell|\bDM\b|distriktsmästerskap|stafett|jukola|tiomila|25manna|ungdomens/i;
 const FEAT_MINUS = /test|träning|training|demo|prov|övning/i;
 async function loadFeatured(){
   const today = todayStr();
   if(S.featured && S.featured.date === today) return;
   const list = (S.compList || []).filter(c => c.date === today && (+c.timediff || 0) === 0);
-  S.featured = {date: today, items: list.map(c => ({c, classes: null})), loading: true};
-  const queue = [...S.featured.items].slice(0, 40);
-  const worker = async () => { while(queue.length){ const it = queue.shift();
-    try{ const d = await api({method:"getclasses", comp: it.c.id}); it.classes = (d.classes || []).length; }catch{ it.classes = 0; } } };
-  await Promise.all([worker(), worker(), worker(), worker()]);
+  const cached = store.get("featured", null);
+  if(cached && cached.date === today && Date.now() - cached.t < 30*60000){
+    S.featured = {date: today, loading: false, items: cached.items.map(x => ({...x, c: list.find(c => c.id === x.id)})).filter(x => x.c)};
+    if(["live","comps"].includes(S.tab)) render(); return;
+  }
+  S.featured = {date: today, items: list.map(c => ({c, id: c.id, classNames: null, classes: null, ifk: 0, entrants: null})), loading: true};
+  const run = async (items, fn, n = 6) => { const q = [...items]; await Promise.all(Array.from({length:n}, async () => { while(q.length){ const it = q.shift(); try{ await fn(it); }catch{} } })); };
+  // 1) antal klasser + antal från IFK Göteborg Orientering i varje tävling
+  await run(S.featured.items.slice(0, 40), async it => {
+    const d = await api({method:"getclasses", comp: it.c.id}); it.classNames = (d.classes || []).map(x => x.className); it.classes = it.classNames.length;
+    const cr = await api({method:"getclubresults", comp: it.c.id, club: MAIN_CLUB()}); it.ifk = (cr.results || []).length;
+  });
   S.featured.loading = false;
   if(["live","comps"].includes(S.tab)) render();
+  // 2) antal anmälda för de största tävlingarna (räknar deltagare i alla klasser)
+  const big = [...S.featured.items].filter(it => it.classes).sort((a,b) => (b.ifk>0)-(a.ifk>0) || b.classes - a.classes).slice(0, 8);
+  await run(big, async it => {
+    let n = 0; await run(it.classNames, async cls => { const d = await api({method:"getclassresults", comp: it.c.id, class: cls}); n += (d.results || []).length; }, 4);
+    it.entrants = n;
+  }, 2);
+  store.set("featured", {date: today, t: Date.now(), items: S.featured.items.map(({c, classNames, ...x}) => x)});
+  if(["live","comps"].includes(S.tab)) render();
+  if(["live","comps"].includes(S.tab)) render();
 }
+// Ordning: Noel/Moa med > IFK Göteborg-löpare med (fler = högre) > storlek (anmälda, klasser) > mästerskap/rankning
 function featuredScore(it){
   const t = it.c.name + " " + it.c.organizer;
-  return (FEAT_PLUS.test(t) ? 40 : 0) - (FEAT_MINUS.test(t) ? 100 : 0) + Math.min(60, it.classes || 0) + (S.entries[it.c.id]?.names?.length ? 200 : 0);
+  return (S.entries[it.c.id]?.names?.length ? 100000 : 0)
+    + (it.ifk > 0 ? 10000 + Math.min(it.ifk, 200) * 20 : 0)
+    + (it.entrants != null ? it.entrants * 2 : (it.classes || 0) * 15)
+    + (it.classes || 0) * 5
+    + (FEAT_PLUS.test(t) ? 150 : 0) - (FEAT_MINUS.test(t) ? 5000 : 0);
 }
 function featuredHtml(){
   if(!S.featured) return "";
   const items = S.featured.items.filter(it => it.classes !== 0).sort((a,b) => featuredScore(b) - featuredScore(a));
   if(!items.length) return S.featured.loading ? liveSec("l_today", "Tävlingar idag", `<div class="spinner"></div>`) : liveSec("l_today", "Tävlingar idag", `<p class="note">Inga tävlingar på LiveResults idag.</p>`);
   const show = S.showAllToday ? items : items.slice(0, 3);
-  const body = `<div class="card">${show.map(({c, classes}) => { const names = S.entries[c.id]?.names || [];
+  const body = `<div class="card">${show.map(({c, classes, ifk, entrants}) => { const names = S.entries[c.id]?.names || [];
     return `<button class="list-item" data-act="pickcomp" data-id="${c.id}">
       ${names.length ? `<div class="avatars">${names.map(n => avatar(n,30)).join("")}</div>` : `<span class="feat-flag"></span>`}
-      <div class="grow"><div class="t">${esc(c.name)}</div><div class="s">${esc(c.organizer)}${classes ? ` · ${classes} klasser` : ""}</div></div>
+      <div class="grow"><div class="t">${esc(c.name)}</div><div class="s">${esc(c.organizer)}${classes ? ` · ${classes} klasser` : ""}${entrants ? ` · ${entrants} anmälda` : ""}</div>
+        ${ifk ? `<div class="s ifk-line">${cardLogo(null, 16)}${ifk} från IFK Göteborg</div>` : ""}</div>
       ${S.comp && S.comp.id === c.id ? `<span class="chip ok">Vald</span>` : `<span class="chev">›</span>`}</button>`; }).join("")}</div>
     ${items.length > 3 ? `<p class="note" style="text-align:center"><button class="back" data-act="alltoday">${S.showAllToday ? "Visa färre" : `Visa alla ${items.length} tävlingar idag`}</button></p>` : ""}`;
   return liveSec("l_today", "Tävlingar idag", body);
 }
+// Sortera barnen: den som har närmast förestående tävling (datum, sedan starttid) överst
+function nextStartKey(f){
+  const today = todayStr();
+  const next = (S.compList || []).filter(c => S.entries[c.id]?.names?.includes(f.name) && c.date >= today).sort((a,b) => a.date.localeCompare(b.date))[0];
+  if(!next) return "9999";
+  const r = [...S.runners.values()].find(x => normName(x.name) === normName(f.name));
+  const st = S.comp && S.comp.id === next.id && r && r.start ? String(r.start).padStart(9,"0") : "999999999";
+  return next.date + st;
+}
+const favsByNext = () => [...S.favs].sort((a,b) => nextStartKey(a).localeCompare(nextStartKey(b)));
 function renderHome(){
   ensureComps();
-  $view.innerHTML = compErrHtml() + (S.favs.length ? liveSec("l_mina", "Mina löpare", S.favs.map(idleCard).join("")) : "") + featuredHtml()
+  $view.innerHTML = compErrHtml() + (S.favs.length ? liveSec("l_mina", "Mina löpare", favsByNext().map(idleCard).join("")) : "") + featuredHtml()
     + (!S.featured && !S.compErr ? `<div class="spinner"></div>` : "");
 }
 
@@ -1052,6 +1113,7 @@ function render(){
 
 function placeBadge(r){
   const p = parseInt(r.place,10);
+  if(phase(r) === "done" && p > 0 && isFav(r.name, r.club) && medal(p)) return `<span class="place medal">${medal(p)}</span>`;
   if(phase(r) === "done" && p > 0) return `<span class="place tnum ${p===1?"gold":""}">${p}</span>`;
   return "";
 }
@@ -1077,7 +1139,7 @@ function runnerCard(r){
   if(ph === "run"){
     const pct = r.splits.length ? Math.round(done / (r.splits.length+1) * 100) : (r.progress ?? 0);
     extra += `<div class="progress"><i style="width:${Math.max(4,pct)}%"></i></div>`;
-    extra += last ? `<div class="last">Senast: <b>${esc(last.name)}</b> ${fmt(last.time)} · plats ${esc(lastPlace(r, last) || last.place || "–")} <span class="tnum">${fmtPlus(last.plus)}</span></div>`
+    extra += last ? `<div class="last">Senast: <b>${esc(last.name)}</b> ${fmt(last.time)} · plats ${esc(lastPlace(r, last) || last.place || "–")}${isFav(r.name,r.club) ? medal(lastPlace(r, last)) : ""} <span class="tnum">${fmtPlus(last.plus)}</span></div>`
                   : `<div class="last">${r.splits.length ? "Ingen radiokontroll passerad än" : "Inga radiokontroller i klassen"}</div>`;
     if(isFav(r.name, r.club)) extra += predictHtml(r);
   }
@@ -1095,7 +1157,7 @@ function runnerCard(r){
   return `<div class="card"><button class="runner" data-act="toggle" data-key="${esc(k)}">
     <div class="r-top">${isFav(r.name,r.club) ? `<span class="avatar-btn">${avatar(r.name,48)}${placeBadge(r).replace('class="place','class="place pl')}</span>` : placeBadge(r)}<div style="min-width:0"><div class="r-name">${esc(r.name)}</div>
       <div class="r-meta">${esc(r.cls)} · ${esc(r.club)}</div><div style="margin-top:6px">${statusChip(r)}</div></div>
-      <div class="r-right">${right}</div></div>${extra}</button>${splitsHtml}</div>`;
+      <div class="r-right">${isFav(r.name,r.club) ? cardLogo(r.club, 30) : ""}${right}</div></div>${extra}</button>${splitsHtml}</div>`;
 }
 
 function liveSec(id, title, body){
@@ -1113,7 +1175,9 @@ function renderLive(){
     $view.innerHTML = S.lastOk ? `<div class="empty"><h2>Inga löpare hittades</h2><p>Ingen från ${esc([...S.clubs].join(", ")||"dina favoriter")} verkar vara anmäld i den här tävlingen. Kontrollera att klubbnamnet stavas exakt som i LiveResults.</p><button class="btn" data-act="tab" data-tab="browse">Bläddra i klasser</button></div>` : `<div class="spinner"></div>`;
     return;
   }
-  const favCards = S.favs.map(f => {
+  const favOrder = f => { const r = rs.find(x => normName(x.name) === normName(f.name)); if(!r) return 9e9;
+    const ph = phase(r); return (ph === "run" ? 0 : ph === "wait" ? 1e7 : 2e7) + (r.start || 0); };
+  const favCards = [...S.favs].sort((a,b) => favOrder(a) - favOrder(b)).map(f => {
     const r = rs.find(x => normName(x.name) === normName(f.name) && sameClub(f.club, x.club));
     if(r) return runnerCard(r);
     const known = S.entries[S.comp.id];
@@ -1187,14 +1251,28 @@ function drawComps(){
       <div class="grow"><div class="t">${esc(c.name)}</div><div class="s">${esc(c.date)} · ${esc(names.map(n=>n.split(" ")[0]).join(" & "))}${c.multidaystage ? " · etapp "+c.multidaystage : ""}</div></div>
       ${S.comp && S.comp.id===c.id ? `<span class="chip ok">Vald</span>` : `<span class="chev">›</span>`}</button>`; };
   const group = (title, arr) => arr.length ? `<div class="section-title">${title}</div><div class="card">${arr.map(item).join("")}</div>` : "";
+  // Stora kort för idag/kommande
+  const daysTo = c => Math.round((Date.parse(c.date) - Date.parse(today)) / 864e5);
+  const bigItem = c => { const names = S.entries[c.id].names; const dt = daysTo(c);
+    const mon = ["JAN","FEB","MAR","APR","MAJ","JUN","JUL","AUG","SEP","OKT","NOV","DEC"][+c.date.slice(5,7)-1];
+    return `<button class="card big-comp" data-act="pickcomp" data-id="${c.id}">
+      <div class="date-badge"><b>${+c.date.slice(8,10)}</b><span>${mon}</span></div>
+      <div class="grow"><div class="big-t">${esc(c.name)}</div><div class="s">${esc(c.organizer)}${c.multidaystage ? " · etapp " + c.multidaystage : ""}</div>
+        <div class="big-who"><div class="avatars">${names.map(n => avatar(n,30)).join("")}</div><span>${esc(names.map(n => n.split(" ")[0]).join(" & "))}</span>
+        <span class="chip ${dt === 0 ? "run" : "wait"}">${dt === 0 ? "IDAG" : dt === 1 ? "imorgon" : "om " + dt + " dagar"}</span></div></div>
+      ${S.comp && S.comp.id===c.id ? `<span class="chip ok">Vald</span>` : `<span class="chev">›</span>`}</button>`; };
+  const bigGroup = (title, arr) => arr.length ? `<div class="section-title">${title}</div>${arr.map(bigItem).join("")}` : "";
+  const pastN = store.get("pastN", 5);
+  const pastGroup = arr => arr.length ? liveSec("c_past", `Tidigare (${arr.length})`, `<div class="card">${(pastN ? arr.slice(0, pastN) : arr).map(item).join("")}</div>`
+    + (pastN && arr.length > pastN ? `<p class="note" style="text-align:center"><button class="back" data-act="tab" data-tab="history">Visa alla ${arr.length} i Historik</button></p>` : "")) : "";
   const todayL = mine.filter(c=>c.date===today);
   const upcoming = mine.filter(c=>c.date>today).sort((a,b)=>a.date.localeCompare(b.date));
   const past = mine.filter(c=>c.date<today).sort((a,b)=>b.date.localeCompare(a.date));
   const sc = S.scan;
   const progress = sc.running ? `<p class="note">Letar efter ${esc(who)} i tävlingarna… ${sc.done} av ${sc.total}</p><div class="scan-bar"><i style="width:${Math.round(sc.done/Math.max(1,sc.total)*100)}%"></i></div>` : "";
   const idle = !todayL.length && !upcoming.length && !sc.running
-    ? liveSec("l_mina", "Mina löpare", S.favs.map(idleCard).join("") + `<p class="note">${esc(who)} syns här så fort arrangören lagt upp startlistan på LiveResults – ofta samma dag som tävlingen.</p>`) : "";
-  box.innerHTML = progress + idle + group("Idag", todayL) + group("Kommande", upcoming) + featuredHtml() + group("Tidigare", past)
+    ? liveSec("l_mina", "Mina löpare", favsByNext().map(idleCard).join("") + `<p class="note">${esc(who)} syns här så fort arrangören lagt upp startlistan på LiveResults – ofta samma dag som tävlingen.</p>`) : "";
+  box.innerHTML = progress + idle + bigGroup("Idag", todayL) + bigGroup("Kommande", upcoming) + featuredHtml() + pastGroup(past)
     + (!sc.running ? `<p class="note" style="text-align:center"><button class="back" data-act="rescan">Sök igen</button></p>` : "");
   if(!S.featured) loadFeatured();
 }
@@ -1229,6 +1307,8 @@ function renderFollow(){
     <div class="card">
       <label class="switch-row"><div class="grow"><div class="t">Notiser</div><div class="s note" style="margin:0">${notifState}</div></div>
         <input type="checkbox" class="toggle" id="notifT" ${S.notify && ("Notification" in window) && Notification.permission==="granted" ? "checked":""}></label>
+      <label class="switch-row"><div class="grow"><div class="t">Tidigare tävlingar som visas</div><div class="s note" style="margin:0">Under Tävlingar → Tidigare</div></div>
+        <select id="pastN" class="sel">${[3,5,10,20,0].map(n => `<option value="${n}" ${store.get("pastN",5)===n?"selected":""}>${n || "Alla"}</option>`).join("")}</select></label>
       <label class="switch-row"><div class="grow"><div class="t">Håll skärmen tänd</div><div class="s note" style="margin:0">Bra när du följer en start</div></div>
         <input type="checkbox" class="toggle" id="wakeT" ${store.get("wake",false)?"checked":""}></label>
     </div>
@@ -1249,6 +1329,7 @@ function renderFollow(){
     store.set("notify", S.notify); render();
   };
   document.getElementById("wakeT").onchange = e => setWake(e.target.checked);
+  document.getElementById("pastN").onchange = e => store.set("pastN", +e.target.value);
 }
 function clubSuggestions(){
   const set = new Set();
