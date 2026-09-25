@@ -258,7 +258,7 @@ const store = {
 
 /* ================== Förinställt ================== */
 // Löparna som följs från start. Kan ändras i appen under Följer.
-const DEFAULT_ALT_CLUBS = ["Göteborgs Orienteringsförbund", "Göteborgs OF", "GOF", "Sverige", "Sweden"];
+const DEFAULT_ALT_CLUBS = ["Göteborgs Orienteringsförbund", "Göteborgs OF", "Göteborgs OF 1", "Göteborgs OF 2", "GOF", "Sverige", "Sweden"];
 const DEFAULT_FAVS = [
   {name:"Noel Kjellberger", club:"IFK Göteborg Orientering"},
   {name:"Moa Kjellberger",  club:"IFK Göteborg Orientering"},
@@ -385,9 +385,19 @@ const MEDAL = {1:"🥇", 2:"🥈", 3:"🥉"};
 const medal = p => MEDAL[parseInt(p,10)] || "";
 const MAIN_CLUB = () => (S.favs[0] && S.favs[0].club) || "IFK Göteborg Orientering";
 function logoSrc(){ return store.get("logo", null) || "logo.png"; }
+// Loggan läses in EN gång och hålls i minnet som data-URL, så den inte laddas om (blinkar) vid varje uppdatering
+S.logoData = null;
+function loadLogoData(){
+  const saved = store.get("logo", null);
+  if(saved){ S.logoData = saved; return Promise.resolve(); }
+  return fetch("logo.png", {cache:"force-cache"}).then(r => r.ok ? r.blob() : null).then(b => b && new Promise(res => {
+    const fr = new FileReader(); fr.onload = () => { S.logoData = fr.result; res(); }; fr.readAsDataURL(b); }))
+    .catch(() => {}).then(() => { if(S.logoData) render(); });
+}
 function cardLogo(club, size = 34){
+  if(!S.logoData) return "";
   if(club && !sameClub(MAIN_CLUB(), club)) return "";            // springer för t.ex. GOF – visa inte IFK-loggan
-  return `<img class="card-logo" src="${logoSrc()}" alt="" style="width:${size}px;height:${size}px" onerror="this.remove()">`;
+  return `<img class="card-logo" src="${S.logoData}" alt="" style="width:${size}px;height:${size}px">`;
 }
 
 /* ================== Avatarer & logga ================== */
@@ -429,6 +439,7 @@ function applyLogo(){
   el.onerror = () => el.classList.add("hidden");
   el.onload = () => el.classList.remove("hidden");
   el.src = saved || "logo.png";   // logo.png i samma mapp som appen, eller uppladdad i appen
+  S.logoData = null; loadLogoData();
 }
 
 /* ================== Tävlingar där barnen är anmälda ================== */
@@ -471,7 +482,7 @@ async function scanCompetitions(){
     S.scan.done++;
     if(!S.scan.futureDone && !futureLeft() && !inFlightFuture.size){ S.scan.futureDone = true; store.set("entries2", S.entries); lastDraw = 0; }
     if(S.scan.done % 50 === 0) store.set("entries2", S.entries);
-    if(Date.now() - lastDraw > 400){ lastDraw = Date.now(); if(S.tab === "comps") drawComps(); if(S.tab === "history") renderHistory(); if(S.tab === "live" && !S.comp) render(); }
+    if(Date.now() - lastDraw > 400){ lastDraw = Date.now(); if(S.tab === "comps") drawComps(); if(S.tab === "history") renderHistory(); if(S.tab === "live" && !S.comp && Date.now() - (S.lastHomeDraw||0) > 2500){ S.lastHomeDraw = Date.now(); render(); } }
   } };
   await Promise.all(Array.from({length:8}, worker));
   S.scan.running = false; S.scan.futureDone = true;
@@ -1281,17 +1292,17 @@ function renderFollow(){
   const notifState = !("Notification" in window) ? "Stöds ej i denna webbläsare – öppna appen från hemskärmen" :
     Notification.permission === "granted" ? "Tillåtna" : Notification.permission === "denied" ? "Blockerade i iPhones inställningar" : "Inte aktiverade än";
   $view.innerHTML = `
-    <div class="section-title">Följ hela klubbar (valfritt)</div>
+    ${liveSec("f_follow", "Följ hela klubbar (valfritt)", `
     <div class="tags" id="clubTags">${S.clubs.map((c,i)=>`<span class="tag">${esc(c)}<button data-act="rmclub" data-i="${i}" aria-label="Ta bort">✕</button></span>`).join("") || `<span class="note">Inga klubbar</span>`}</div>
     <form class="inline-form" id="clubForm"><input class="search" id="clubIn" placeholder="Klubbnamn, t.ex. OK Ravinen" autocomplete="off" list="clubSug"><button class="btn primary">Lägg till</button></form>
     <datalist id="clubSug">${clubSuggestions().map(c=>`<option value="${esc(c)}">`).join("")}</datalist>
-    <p class="note">Stavas exakt som i LiveResults. Förslag visas från klasser du har öppnat.</p>
+    <p class="note">Stavas exakt som i LiveResults. Förslag visas från klasser du har öppnat.</p>`)}
 
-    <div class="section-title">Klubbar barnen tävlar för</div>
+    ${liveSec("f_kidclubs", `Klubbar barnen tävlar för (${favClubs().length})`, `
     <div class="tags">${favClubs().map(c => { const alt = S.altClubs.indexOf(c);
       return `<span class="tag">${esc(c)}${alt >= 0 ? `<button data-act="rmalt" data-i="${alt}" aria-label="Ta bort">✕</button>` : `<span class="note" style="margin:0 8px 0 2px">huvudklubb</span>`}</span>`; }).join("")}</div>
     <form class="inline-form" id="altForm"><input class="search" id="altIn" placeholder="T.ex. Västergötlands OF" autocomplete="off"><button class="btn primary">Lägg till</button></form>
-    <p class="note">Appen letar efter Noel och Moa under alla dessa namn, t.ex. när de springer för distriktet eller landslaget. Namnet måste stavas som i LiveResults.</p>
+    <p class="note">Appen letar efter Noel och Moa under alla dessa namn, t.ex. när de springer för distriktet eller landslaget. Namnet måste stavas som i LiveResults.</p>`)}
 
     <div class="section-title">Favoriter</div>
     <div class="card">${S.favs.length ? S.favs.map((f,i)=>`<div class="list-item"><button class="avatar-btn" data-act="setavatar" data-name="${esc(f.name)}" aria-label="Byt bild">${avatar(f.name,48)}<span class="cam">✎</span></button><div class="grow"><div class="t">${esc(f.name)}</div><div class="s">${esc(f.club)}</div></div>
@@ -1408,6 +1419,11 @@ document.addEventListener("visibilitychange", () => {
 if(!store.get("altmig1", false)){
   if(!S.altClubs.some(c => c.toLowerCase() === "göteborgs of")) S.altClubs.splice(1, 0, "Göteborgs OF");
   store.set("altclubs", S.altClubs); store.set("altmig1", true);
+}
+if(!store.get("altmig2", false)){
+  let at = Math.max(0, S.altClubs.findIndex(c => c.toLowerCase() === "göteborgs of") + 1);
+  for(const n of ["Göteborgs OF 1", "Göteborgs OF 2"]) if(!S.altClubs.some(c => c.toLowerCase() === n.toLowerCase())) S.altClubs.splice(at++, 0, n);
+  store.set("altclubs", S.altClubs); store.set("altmig2", true);
 }
 applyLogo();
 if(S.comp && S.comp.date < todayStr()){ S.comp = null; store.set("comp", null); }   // gårdagens tävling → hemvyn

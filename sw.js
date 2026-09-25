@@ -1,5 +1,5 @@
 // OL Live service worker: cachar appskalet, aldrig API-data.
-const CACHE = "ollive-v13";
+const CACHE = "ollive-v14";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener("activate", e => {
@@ -8,6 +8,14 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   const url = new URL(e.request.url);
   if (url.origin !== location.origin || e.request.method !== "GET") return; // API går direkt mot nätet
+  // Bilder: visa från cache direkt och uppdatera i bakgrunden (ingen blinkning)
+  if(/\.(png|jpe?g|webp|svg)$/i.test(url.pathname)){
+    e.respondWith(caches.open(CACHE).then(c => c.match(e.request).then(hit => {
+      const net = fetch(e.request).then(r => { if(r.ok) c.put(e.request, r.clone()); return r; }).catch(() => hit);
+      return hit || net;
+    })));
+    return;
+  }
   // nätet först, cache som reserv (offline)
   e.respondWith(fetch(e.request).then(r => { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return r; })
     .catch(() => caches.match(e.request).then(r => r || caches.match("index.html"))));
