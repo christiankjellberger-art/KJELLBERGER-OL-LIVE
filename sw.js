@@ -1,5 +1,5 @@
 // OL Live service worker: cachar appskalet, aldrig API-data.
-const CACHE = "ollive-v15";
+const CACHE = "ollive-v17";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener("activate", e => {
