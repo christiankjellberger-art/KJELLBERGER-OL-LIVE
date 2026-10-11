@@ -331,16 +331,30 @@ function clubVariants(club){
 const isClubFollowed = club => S.clubs.some(c => c.toLowerCase() === (club||"").toLowerCase());
 
 /* ================== API ================== */
-async function api(params, timeoutMs = 25000){
+// När LiveResults är överbelastat ("Too many connections") backar appen: bakgrundsjobb pausas och allt försöker igen.
+S.busyUntil = 0; S.busyStreak = 0;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const isBusy = () => Date.now() < S.busyUntil;
+function markBusy(){
+  if(isBusy()) return;                      // flera samtidiga fel räknas som ett
+  S.busyStreak = Math.min(S.busyStreak + 1, 4);
+  S.busyUntil = Date.now() + Math.min(60000, 2500 * 2 ** S.busyStreak);   // 5 s, 10 s, 20 s, 40 s …
+}
+const BUSY_MSG = "LiveResults är överbelastat just nu – försöker igen automatiskt";
+async function api(params, timeoutMs = 25000, opts = {}){
+  if(opts.low) while(isBusy()) await sleep(S.busyUntil - Date.now() + 200);   // bakgrundsanrop väntar ut överbelastning
   const url = API + "?" + new URLSearchParams(params).toString();
   const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), timeoutMs);
   let res;
   try{ res = await fetch(url, {cache:"no-store", signal: ctrl.signal}); }
   catch(e){ throw new Error(e.name === "AbortError" ? "LiveResults svarar inte (timeout)" : "Ingen kontakt med LiveResults (" + e.message + ")"); }
   finally{ clearTimeout(timer); }
+  const busyErr = () => { markBusy(); const e = new Error(BUSY_MSG); e.busy = true; return e; };
+  if(res.status >= 500) throw busyErr();
   if(!res.ok) throw new Error("HTTP " + res.status);
   const text = await res.text();
-  try { return JSON.parse(text); } catch {}
+  if(/too many connections|connect failed|max_user_connections|server has gone away/i.test(text.slice(0, 300))) throw busyErr();
+  try { const j = JSON.parse(text); S.busyStreak = 0; return j; } catch {}
   try { return JSON.parse(repairJSON(text)); }
   catch(e){ throw new Error("Oväntat svar från LiveResults (" + e.message + ")"); }
 }
@@ -502,20 +516,20 @@ async function scanCompetitions(){
       const ask = fresh ? clubs : missing(c);
       const hits = new Set(fresh ? [] : prev.names), rows = fresh ? [] : [...(prev.rows||[])];
       for(const club of ask){
-        const d = await api({method:"getclubresults", comp:c.id, club, unformattedTimes:"true"});
+        const d = await api({method:"getclubresults", comp:c.id, club, unformattedTimes:"true"}, 25000, {low:true});
         for(const r of (d.results||[])){ const f = favOf(r.name, r.club); if(f){ hits.add(f.name);
           if(!rows.some(x => normName(x.name) === normName(r.name) && x.class === r.class))
             rows.push({name:r.name, club:r.club, class:r.class, result:r.result, status:r.status, place:r.place, timeplus:r.timeplus}); } }
       }
       inFlightFuture.delete(c.id);
       S.entries[c.id] = {t: fresh ? Date.now() : prev.t, names:[...hits], rows, clubs: fresh ? clubs : [...new Set([...(prev.clubs||[]), ...ask])]};
-    }catch{ inFlightFuture.delete(c.id); }
+    }catch(e){ inFlightFuture.delete(c.id); if(e.busy){ queue.unshift(c); continue; } }
     S.scan.done++;
     if(!S.scan.futureDone && !futureLeft() && !inFlightFuture.size){ S.scan.futureDone = true; store.set("entries2", S.entries); lastDraw = 0; }
     if(S.scan.done % 50 === 0) store.set("entries2", S.entries);
     if(Date.now() - lastDraw > 400){ lastDraw = Date.now(); if(S.tab === "comps") drawComps(); if(S.tab === "history") renderHistory(); if(S.tab === "live" && !S.comp && Date.now() - (S.lastHomeDraw||0) > 2500){ S.lastHomeDraw = Date.now(); render(); } }
   } };
-  await Promise.all(Array.from({length:8}, worker));
+  await Promise.all(Array.from({length:4}, worker));
   S.scan.running = false; S.scan.futureDone = true;
   store.set("entries2", S.entries);
   if(S.tab === "comps") drawComps();
@@ -596,7 +610,7 @@ async function poll(){
     S.error = null; S.lastOk = Date.now();
     detectChanges();
   }catch(e){
-    S.error = "Kunde inte nå LiveResults (" + e.message + ")";
+    S.error = e.busy ? BUSY_MSG : "Kunde inte nå LiveResults (" + e.message + ")";
   }finally{
     busy = false; S.loading = false;
     renderHeader(); if(S.tab === "live" || S.tab === "browse") render();
@@ -1030,7 +1044,7 @@ function ensureComps(force){
   if(S.compList || S.loadingComps || (S.compErr && !force)) return;
   S.loadingComps = true; S.compErr = null;
   api({method:"getcompetitions"}, 40000).then(d => { S.compList = d.competitions || []; scanCompetitions(); loadFeatured(); })
-    .catch(e => { S.compErr = e.message; }).finally(() => { S.loadingComps = false; if(["live","comps","history"].includes(S.tab)) render(); });
+    .catch(e => { S.compErr = e.message; if(e.busy) setTimeout(() => ensureComps(true), S.busyUntil - Date.now() + 500); }).finally(() => { S.loadingComps = false; if(["live","comps","history"].includes(S.tab)) render(); });
 }
 function compErrHtml(){
   return S.compErr ? `<div class="card err-card"><div class="runner"><b>Kunde inte hämta tävlingar</b><div class="note" style="margin:4px 0 10px">${esc(S.compErr)}</div>
@@ -1076,15 +1090,15 @@ async function loadFeatured(){
   const run = async (items, fn, n = 6) => { const q = [...items]; await Promise.all(Array.from({length:n}, async () => { while(q.length){ const it = q.shift(); try{ await fn(it); }catch{} } })); };
   // 1) antal klasser + antal från IFK Göteborg Orientering i varje tävling
   await run(S.featured.items.slice(0, 40), async it => {
-    const d = await api({method:"getclasses", comp: it.c.id}); it.classNames = (d.classes || []).map(x => x.className); it.classes = it.classNames.length;
-    const cr = await api({method:"getclubresults", comp: it.c.id, club: MAIN_CLUB()}); it.ifk = (cr.results || []).length;
+    const d = await api({method:"getclasses", comp: it.c.id}, 25000, {low:true}); it.classNames = (d.classes || []).map(x => x.className); it.classes = it.classNames.length;
+    const cr = await api({method:"getclubresults", comp: it.c.id, club: MAIN_CLUB()}, 25000, {low:true}); it.ifk = (cr.results || []).length;
   });
   S.featured.loading = false;
   if(["live","comps"].includes(S.tab)) render();
   // 2) antal anmälda för de största tävlingarna (räknar deltagare i alla klasser)
   const big = [...S.featured.items].filter(it => it.classes).sort((a,b) => (b.ifk>0)-(a.ifk>0) || b.classes - a.classes).slice(0, 8);
   await run(big, async it => {
-    let n = 0; await run(it.classNames, async cls => { const d = await api({method:"getclassresults", comp: it.c.id, class: cls}); n += (d.results || []).length; }, 4);
+    let n = 0; await run(it.classNames, async cls => { const d = await api({method:"getclassresults", comp: it.c.id, class: cls}, 25000, {low:true}); n += (d.results || []).length; }, 4);
     it.entrants = n;
   }, 2);
   store.set("featured", {date: today, t: Date.now(), items: S.featured.items.map(({c, classNames, ...x}) => x)});
@@ -1312,7 +1326,10 @@ async function renderBrowse(){
   if(!S.classList){
     $view.innerHTML = `<div class="spinner"></div>`;
     try{ const d = await api({method:"getclasses", comp:S.comp.id}); S.classList = (d.classes||[]).map(c=>c.className); }
-    catch(e){ $view.innerHTML = `<p class="note">Kunde inte hämta klasser: ${esc(e.message)}</p>`; return; }
+    catch(e){
+      $view.innerHTML = `<div class="card err-card"><div class="runner"><b>Kunde inte hämta klasser</b><div class="note" style="margin:4px 0 0">${esc(e.message)}</div></div></div>`;
+      setTimeout(() => { if(S.tab === "browse" && !S.classList) render(); }, Math.max(8000, S.busyUntil - Date.now() + 500));
+      return; }
     if(S.tab !== "browse") return;
   }
   $view.innerHTML = `<input class="search" id="clsSearch" placeholder="Sök klass…" autocomplete="off" value="${esc(S.clsQuery||"")}"><div class="card" style="margin-top:10px" id="clsList"></div>`;
